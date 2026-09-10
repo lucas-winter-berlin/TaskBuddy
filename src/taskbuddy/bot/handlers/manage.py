@@ -1,4 +1,4 @@
-"""Projekte verwalten, Tasks erledigen/loeschen."""
+"""Manage projects, complete/delete tasks."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ async def projects_command(update: Update, context: BotContextTypes) -> None:
     async with ctx.db.session() as session:
         repo = ctx.repository(session)
         projects = await repo.ensure_default_projects(uid)
-    lines = [f"{ic.html('section')} <b>Projekte</b>"]
+    lines = [f"{ic.html('section')} <b>Projects</b>"]
     for project in projects:
         lines.append(project_line(project))
     lines.append(f"\n{_PROJECT_USAGE}")
@@ -56,7 +56,7 @@ async def _project_create(
     update: Update, context: BotContextTypes, name: str
 ) -> None:
     if not name:
-        await reply(update, f"{ic.html('warn')} Bitte einen Namen angeben.")
+        await reply(update, f"{ic.html('warn')} Please provide a name.")
         return
     uid = user_id_of(update)
     ctx = app_context(context)
@@ -67,13 +67,13 @@ async def _project_create(
         if existing:
             await reply(
                 update,
-                f"{ic.html('warn')} Gibt’s schon: <b>{esc(existing.name)}</b>",
+                f"{ic.html('warn')} Already exists: <b>{esc(existing.name)}</b>",
             )
             return
         project = await repo.create_project(uid, name)
     await reply(
         update,
-        f"{ic.html('ok')} Projekt angelegt:\n{project_line(project)}",
+        f"{ic.html('ok')} Project created:\n{project_line(project)}",
     )
 
 
@@ -95,21 +95,21 @@ async def _project_delete(
         if project is None:
             await reply(
                 update,
-                f"{ic.html('warn')} Projekt „{esc(name)}“ nicht gefunden.",
+                f"{ic.html('warn')} Project \"{esc(name)}\" not found.",
             )
             return
         if project.kind in ("private", "work"):
             await reply(
                 update,
-                f"{ic.html('lock')} <b>{esc(project.name)}</b> ist fest – "
+                f"{ic.html('lock')} <b>{esc(project.name)}</b> is built-in – "
                 f"cannot be deleted (rename only).",
             )
             return
         removed = await repo.soft_delete_project(uid, project.id)
     await reply(
         update,
-        f"{ic.html('ok')} Projekt <b>{esc(project.name)}</b> gelöscht"
-        f" ({removed or 0} Einträge mit entfernt).",
+        f"{ic.html('ok')} Project <b>{esc(project.name)}</b> deleted"
+        f" ({removed or 0} items removed too).",
     )
 
 
@@ -143,7 +143,7 @@ async def _project_rename(
         if project is None:
             await reply(
                 update,
-                f"{ic.html('warn')} Projekt „{esc(old_name)}“ nicht gefunden.",
+                f"{ic.html('warn')} Project \"{esc(old_name)}\" not found.",
             )
             return
         try:
@@ -153,18 +153,20 @@ async def _project_rename(
             return
     await reply(
         update,
-        f"{ic.html('ok')} Umbenannt:\n{project_line(updated)}",
+        f"{ic.html('ok')} Renamed:\n{project_line(updated)}",
     )
 
 
 async def done_command(update: Update, context: BotContextTypes) -> None:
     args = context.args or []
     if not args:
-        await reply(update, f"{ic.html('tip')} Nutzung: <code>/done 12</code>")
+        await reply(update, f"{ic.html('tip')} Usage: <code>/done 12</code>")
         return
     raw = args[0].lstrip("#")
     if not raw.isdigit():
-        await reply(update, f"{ic.html('warn')} Bitte eine ID, z. B. <code>/done 12</code>")
+        await reply(
+            update, f"{ic.html('warn')} Please provide an ID, e.g. <code>/done 12</code>"
+        )
         return
     await _remove_item(update, context, int(raw), as_done=True)
 
@@ -197,14 +199,14 @@ async def _remove_item(
         repo = ctx.repository(session)
         item = await repo.get_item(uid, item_id)
         if item is None:
-            text = f"{ic.html('warn')} Eintrag <code>#{item_id}</code> nicht gefunden."
+            text = f"{ic.html('warn')} Item <code>#{item_id}</code> not found."
             if via_edit:
                 await edit(update, text)
             else:
                 await reply(update, text)
             return
         if as_done and item.type != "task":
-            text = f"{ic.html('warn')} Nur Aufgaben können erledigt werden."
+            text = f"{ic.html('warn')} Only tasks can be marked done."
             if via_edit:
                 await edit(update, text)
             else:
@@ -212,7 +214,7 @@ async def _remove_item(
             return
         await repo.soft_delete_item(uid, item_id)
 
-    verb = "erledigt und entfernt" if as_done else "gelöscht"
+    verb = "done and removed" if as_done else "deleted"
     text = f"{ic.html('ok')} <code>#{item_id}</code> {esc(item.title)} – {verb}."
     if via_edit:
         await edit(update, text)

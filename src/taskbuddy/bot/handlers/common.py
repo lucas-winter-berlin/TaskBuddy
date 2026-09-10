@@ -1,4 +1,4 @@
-"""Start, Hilfe, Settings, Fallback, Errors."""
+"""Start, help, settings, fallback, errors."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import logging
 from telegram import Update
 
 from ... import icons as ic
+from .. import keyboards as kb
 from ..context import BotContextTypes, app_context, is_authorised, reply, user_id_of
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,8 @@ HELP_TEXT = f"""{ic.html('tip')} <b>TaskBuddy – Commands</b>
 Send text → new <b>task</b>
 <code>note: …</code> or /note → <b>note</b>
 
+Bottom keyboard – tap Tasks / Notes / Projects / Search
+
 /tasks [project] – tasks (A→D)
 /notes [project] – notes
 /projects – list projects
@@ -25,6 +28,7 @@ Send text → new <b>task</b>
 /project delete Name – custom project (+ items)
 /done ID – complete task (remove)
 /search … – search
+/menu – show keyboard again
 /settings – config
 /help – this help
 
@@ -43,7 +47,7 @@ async def start(update: Update, context: BotContextTypes) -> None:
     if not is_authorised(update, settings):
         await reply(
             update,
-            f"{ic.html('lock')} Dieser Bot ist privat.\nDeine User-ID: <code>{uid}</code>",
+            f"{ic.html('lock')} This bot is private.\nYour user id: <code>{uid}</code>",
         )
         return
 
@@ -53,15 +57,24 @@ async def start(update: Update, context: BotContextTypes) -> None:
 
     await reply(
         update,
-        f"{ic.html('ok')} <b>TaskBuddy</b> bereit.\n"
-        f"Schreib eine Aufgabe, z. B.\n"
-        f"<code>Rechnung bezahlen – dringend</code>\n\n"
+        f"{ic.html('ok')} <b>TaskBuddy</b> ready.\n"
+        f"Type a task, e.g. <code>Pay invoice – urgent</code>\n"
+        f"Or use the buttons below.\n\n"
         f"{HELP_TEXT}",
+        reply_markup=kb.main_reply_keyboard(),
+    )
+
+
+async def menu_command(update: Update, context: BotContextTypes) -> None:
+    await reply(
+        update,
+        f"{ic.html('ok')} Keyboard ready – tap a button or type a task.",
+        reply_markup=kb.main_reply_keyboard(),
     )
 
 
 async def help_command(update: Update, context: BotContextTypes) -> None:
-    await reply(update, HELP_TEXT)
+    await reply(update, HELP_TEXT, reply_markup=kb.main_reply_keyboard())
 
 
 async def settings_command(update: Update, context: BotContextTypes) -> None:
@@ -70,11 +83,12 @@ async def settings_command(update: Update, context: BotContextTypes) -> None:
     await reply(
         update,
         f"{ic.html('gear')} <b>Settings</b>\n"
-        f"Owner: <code>{s.owner_user_id or 'offen'}</code>\n"
+        f"Owner: <code>{s.owner_user_id or 'open'}</code>\n"
         f"DB: {html.escape(backend)}\n"
-        f"Gemini: {'an' if s.gemini_enabled else 'aus'}\n"
+        f"Gemini: {'on' if s.gemini_enabled else 'off'}\n"
         f"Timezone: {html.escape(str(s.timezone))}\n"
         f"Env: {html.escape(s.environment)}",
+        reply_markup=kb.main_reply_keyboard(),
     )
 
 
@@ -87,7 +101,7 @@ async def note_command(update: Update, context: BotContextTypes) -> None:
         message = update.effective_message
         text = (message.text or "").partition(" ")[2].strip() if message else ""
     if not text:
-        await reply(update, f"{ic.html('tip')} Nutzung: <code>/note Text</code>")
+        await reply(update, f"{ic.html('tip')} Usage: <code>/note text</code>")
         return
     await capture.begin_capture(update, context, text, default_type="note")
 
@@ -98,7 +112,7 @@ async def task_command(update: Update, context: BotContextTypes) -> None:
     args = context.args or []
     text = " ".join(args).strip()
     if not text:
-        await reply(update, f"{ic.html('tip')} Nutzung: <code>/task Text</code>")
+        await reply(update, f"{ic.html('tip')} Usage: <code>/task text</code>")
         return
     await capture.begin_capture(update, context, text, default_type="task")
 
@@ -108,16 +122,17 @@ async def fallback(update: Update, context: BotContextTypes) -> None:
         return
     await reply(
         update,
-        f"{ic.html('tip')} Text senden zum Speichern, oder /help.",
+        f"{ic.html('tip')} Send text to save a task, or tap /help.",
+        reply_markup=kb.main_reply_keyboard(),
     )
 
 
 async def error_handler(update: object, context: BotContextTypes) -> None:
-    logger.exception("Unbehandelter Fehler: %s", context.error)
+    logger.exception("Unhandled error: %s", context.error)
     if isinstance(update, Update) and update.effective_message:
         try:
             await update.effective_message.reply_text(
-                "⚠️ Interner Fehler – bitte nochmal versuchen."
+                "⚠️ Something went wrong – please try again."
             )
         except Exception:
-            logger.exception("Fehlerantwort fehlgeschlagen")
+            logger.exception("Failed to send error reply")

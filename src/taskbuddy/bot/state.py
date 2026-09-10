@@ -45,7 +45,7 @@ class ListView:
 
 @dataclass
 class Pending:
-    kind: Literal["new_project"]
+    kind: Literal["new_project", "menu_search"]
     ref: str
 
 

@@ -1,4 +1,4 @@
-"""Erfassen von Tasks/Notizen inkl. Bestaetigung."""
+"""Capture tasks/notes including confirmation."""
 
 from __future__ import annotations
 
@@ -26,10 +26,10 @@ async def begin_capture(
     settings = app_context(context).settings
     parsed = parse_input(text, default_type=default_type)
     if not parsed.title:
-        await reply(update, f"{ic.html('warn')} Bitte Text für die Aufgabe/Notiz angeben.")
+        await reply(update, f"{ic.html('warn')} Please provide text for the task/note.")
         return
     if len(parsed.title) > settings.max_title_length:
-        await reply(update, f"{ic.html('warn')} Titel zu lang.")
+        await reply(update, f"{ic.html('warn')} Title too long.")
         return
 
     uid = user_id_of(update)
@@ -44,7 +44,7 @@ async def begin_capture(
         body=(parsed.body[: settings.max_body_length] if parsed.body else None),
     )
 
-    # Heuristik
+    # Heuristic
     proj_guess = guess_project(
         f"{parsed.title}\n{parsed.body or ''}",
         projects,
@@ -112,7 +112,7 @@ async def begin_capture(
                 project_name=project_name,
                 priority=draft.priority,
             )
-            + f"\n\n{ic.html('tip')} Welches Projekt?",
+            + f"\n\n{ic.html('tip')} Which project?",
             reply_markup=keyboards.project_picker(token, projects),
         )
         return
@@ -128,7 +128,7 @@ async def begin_capture(
                 project_name=project_name,
                 priority=draft.priority,
             )
-            + f"\n\n{ic.html('tip')} Welche Priorität?",
+            + f"\n\n{ic.html('tip')} Which priority?",
             reply_markup=keyboards.priority_picker(token),
         )
         return
@@ -148,7 +148,7 @@ async def begin_capture(
             project_name=project_name,
             priority=draft.priority,
         )
-        + f"\n\n{ic.html('tip')} Passt das?",
+        + f"\n\n{ic.html('tip')} Does this look right?",
         reply_markup=markup,
     )
 
@@ -165,7 +165,7 @@ async def capture_callback(update: Update, context: BotContextTypes) -> None:
     _, action, token, *rest = parts
     draft = state.get_draft(context.user_data, token)
     if draft is None:
-        await edit(update, f"{ic.html('warn')} Entwurf abgelaufen – bitte neu senden.")
+        await edit(update, f"{ic.html('warn')} Draft expired – please send again.")
         return
 
     uid = user_id_of(update)
@@ -174,7 +174,7 @@ async def capture_callback(update: Update, context: BotContextTypes) -> None:
     if action == "cancel":
         state.drop_draft(context.user_data, token)
         state.set_pending(context.user_data, None)
-        await edit(update, f"{ic.html('no')} Abgebrochen.")
+        await edit(update, f"{ic.html('no')} Cancelled.")
         return
 
     if action == "newproj":
@@ -184,7 +184,7 @@ async def capture_callback(update: Update, context: BotContextTypes) -> None:
         )
         await edit(
             update,
-            f"{ic.html('edit')} Namen fürs neue Projekt schicken:",
+            f"{ic.html('edit')} Send a name for the new project:",
         )
         return
 
@@ -194,7 +194,7 @@ async def capture_callback(update: Update, context: BotContextTypes) -> None:
         draft.awaiting = "project"
         await edit(
             update,
-            await _summary_for(draft, ctx, uid) + f"\n\n{ic.html('tip')} Welches Projekt?",
+            await _summary_for(draft, ctx, uid) + f"\n\n{ic.html('tip')} Which project?",
             reply_markup=keyboards.project_picker(token, projects),
         )
         return
@@ -205,7 +205,7 @@ async def capture_callback(update: Update, context: BotContextTypes) -> None:
         draft.awaiting = "priority"
         await edit(
             update,
-            await _summary_for(draft, ctx, uid) + f"\n\n{ic.html('tip')} Welche Priorität?",
+            await _summary_for(draft, ctx, uid) + f"\n\n{ic.html('tip')} Which priority?",
             reply_markup=keyboards.priority_picker(token),
         )
         return
@@ -232,11 +232,11 @@ async def handle_new_project_name(
 ) -> None:
     draft = state.get_draft(context.user_data, token)
     if draft is None:
-        await reply(update, f"{ic.html('warn')} Entwurf abgelaufen.")
+        await reply(update, f"{ic.html('warn')} Draft expired.")
         return
     name = name.strip()
     if not name:
-        await reply(update, f"{ic.html('warn')} Bitte einen Namen senden.")
+        await reply(update, f"{ic.html('warn')} Please send a name.")
         return
     uid = user_id_of(update)
     ctx = app_context(context)
@@ -246,7 +246,7 @@ async def handle_new_project_name(
         draft.project_id = project.id
         draft.project_confidence = 1.0
     state.set_pending(context.user_data, None)
-    # Nach Projekt: Prioritaet oder Confirm
+    # After project: priority or confirm
     threshold = ctx.settings.classify_confidence_threshold
     need_priority = draft.item_type == "task" and (
         draft.priority is None or draft.priority_confidence < threshold
@@ -256,16 +256,16 @@ async def handle_new_project_name(
         await reply(
             update,
             await _summary_for(draft, ctx, uid)
-            + f"\n\n{ic.html('ok')} Projekt <b>{esc(name)}</b> angelegt.\n"
-            f"{ic.html('tip')} Welche Priorität?",
+            + f"\n\n{ic.html('ok')} Project <b>{esc(name)}</b> created.\n"
+            f"{ic.html('tip')} Which priority?",
             reply_markup=keyboards.priority_picker(token),
         )
         return
     await reply(
         update,
         await _summary_for(draft, ctx, uid)
-        + f"\n\n{ic.html('ok')} Projekt <b>{esc(name)}</b> angelegt.\n"
-        f"{ic.html('tip')} Passt das?",
+        + f"\n\n{ic.html('ok')} Project <b>{esc(name)}</b> created.\n"
+        f"{ic.html('tip')} Does this look right?",
         reply_markup=(
             keyboards.confirm_draft(token)
             if draft.item_type == "task"
@@ -287,7 +287,7 @@ async def _advance_after_project(
         draft.awaiting = "priority"
         await edit(
             update,
-            await _summary_for(draft, ctx, uid) + f"\n\n{ic.html('tip')} Welche Priorität?",
+            await _summary_for(draft, ctx, uid) + f"\n\n{ic.html('tip')} Which priority?",
             reply_markup=keyboards.priority_picker(token),
         )
         return
@@ -307,7 +307,7 @@ async def _show_confirm(
     )
     await edit(
         update,
-        await _summary_for(draft, ctx, uid) + f"\n\n{ic.html('tip')} Passt das?",
+        await _summary_for(draft, ctx, uid) + f"\n\n{ic.html('tip')} Does this look right?",
         reply_markup=markup,
     )
 
@@ -316,10 +316,10 @@ async def _persist(
     update: Update, context: BotContextTypes, token: str, draft: state.Draft
 ) -> None:
     if draft.project_id is None:
-        await edit(update, f"{ic.html('warn')} Projekt fehlt noch.")
+        await edit(update, f"{ic.html('warn')} Project still missing.")
         return
     if draft.item_type == "task" and not draft.priority:
-        await edit(update, f"{ic.html('warn')} Priorität fehlt noch.")
+        await edit(update, f"{ic.html('warn')} Priority still missing.")
         return
 
     uid = user_id_of(update)
@@ -337,13 +337,13 @@ async def _persist(
         project = await repo.get_project(uid, draft.project_id)
 
     state.drop_draft(context.user_data, token)
-    kind = "Aufgabe" if draft.item_type == "task" else "Notiz"
+    kind = "Task" if draft.item_type == "task" else "Note"
     extra = f" [{draft.priority}]" if draft.priority else ""
     await edit(
         update,
-        f"{ic.html('ok')} {kind} gespeichert{extra}\n"
+        f"{ic.html('ok')} {kind} saved{extra}\n"
         f"<code>#{item.id}</code> {esc(item.title)}\n"
-        f"Projekt: <b>{esc(project.name if project else '?')}</b>",
+        f"Project: <b>{esc(project.name if project else '?')}</b>",
         reply_markup=keyboards.item_actions(item.id, is_task=draft.item_type == "task"),
     )
 

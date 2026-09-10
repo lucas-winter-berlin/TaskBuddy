@@ -35,4 +35,4 @@ def test_guess_project_work_keyword():
 
 
 def test_format_priority():
-    assert "Wichtig" in format_priority("A")
+    assert "Important" in format_priority("A")

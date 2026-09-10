@@ -8,10 +8,10 @@ from dataclasses import dataclass
 PRIORITIES = ("A", "B", "C", "D")
 
 LABELS = {
-    "A": "Wichtig & Dringend",
-    "B": "Dringend & Unwichtig",
-    "C": "Wichtig & Undringend",
-    "D": "Unwichtig & Undringend",
+    "A": "Important & Urgent",
+    "B": "Urgent & Not important",
+    "C": "Important & Not urgent",
+    "D": "Not important & Not urgent",
 }
 
 _URGENT = re.compile(

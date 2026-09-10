@@ -35,6 +35,7 @@ BOT_COMMANDS = [
     BotCommand("search", "Search"),
     BotCommand("settings", "Settings"),
     BotCommand("help", "Help"),
+    BotCommand("menu", "Show reply keyboard"),
 ]
 
 
@@ -91,6 +92,7 @@ def _register_commands(application: Application, allowed) -> None:
     handlers = [
         ("start", common.start),
         ("help", common.help_command),
+        ("menu", common.menu_command),
         ("settings", common.settings_command),
         ("task", common.task_command),
         ("note", common.note_command),

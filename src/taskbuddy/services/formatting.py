@@ -23,7 +23,7 @@ def item_line(item: Item, project: Project | None = None) -> str:
         meta = format_priority(item.priority)
     else:
         head = f"{ic.html('note')} {esc(item.title)}"
-        meta = "Notiz"
+        meta = "Note"
     bits = [f"<code>#{item.id}</code>", head]
     if project is not None:
         bits.append(f"· {esc(project.name)}")
@@ -43,20 +43,20 @@ def draft_summary(
     project_name: str | None,
     priority: str | None,
 ) -> str:
-    kind = "Aufgabe" if item_type == "task" else "Notiz"
+    kind = "Task" if item_type == "task" else "Note"
     lines = [
-        f"{ic.html('save')} <b>Neue {kind}</b>",
+        f"{ic.html('save')} <b>New {kind}</b>",
         esc(title),
     ]
     if body:
         lines.append(f"<i>{esc(body[:300])}</i>")
     if project_name:
-        lines.append(f"Projekt: <b>{esc(project_name)}</b>")
+        lines.append(f"Project: <b>{esc(project_name)}</b>")
     else:
-        lines.append("Projekt: <i>noch wählen</i>")
+        lines.append("Project: <i>still to choose</i>")
     if item_type == "task":
         if priority:
-            lines.append(f"Priorität: <b>{esc(format_priority(priority))}</b>")
+            lines.append(f"Priority: <b>{esc(format_priority(priority))}</b>")
         else:
-            lines.append("Priorität: <i>noch wählen</i>")
+            lines.append("Priority: <i>still to choose</i>")
     return "\n".join(lines)

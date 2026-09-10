@@ -1,4 +1,4 @@
-"""Listen und Suche."""
+"""Lists and search."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from ..context import BotContextTypes, app_context, edit, reply, user_id_of
 
 
 async def tasks_command(update: Update, context: BotContextTypes) -> None:
-    await _list_command(update, context, item_type="task", title="Aufgaben")
+    await _list_command(update, context, item_type="task", title="Tasks")
 
 
 async def notes_command(update: Update, context: BotContextTypes) -> None:
-    await _list_command(update, context, item_type="note", title="Notizen")
+    await _list_command(update, context, item_type="note", title="Notes")
 
 
 async def search_command(update: Update, context: BotContextTypes) -> None:
@@ -23,7 +23,16 @@ async def search_command(update: Update, context: BotContextTypes) -> None:
     if not args:
         await reply(update, f"{ic.html('tip')} Usage: <code>/search keyword</code>")
         return
-    query = " ".join(args).strip()
+    await search_with_keyword(update, context, " ".join(args).strip())
+
+
+async def search_with_keyword(
+    update: Update, context: BotContextTypes, keyword: str
+) -> None:
+    query = keyword.strip()
+    if not query:
+        await reply(update, f"{ic.html('tip')} Usage: <code>/search keyword</code>")
+        return
     uid = user_id_of(update)
     ctx = app_context(context)
     async with ctx.db.session() as session:
@@ -33,9 +42,9 @@ async def search_command(update: Update, context: BotContextTypes) -> None:
         projects = {p.id: p for p in await repo.list_projects(uid)}
 
     if not items:
-        await reply(update, f"{ic.html('search')} Nichts gefunden für „{esc(query)}“.")
+        await reply(update, f"{ic.html('search')} Nothing found for \"{esc(query)}\".")
         return
-    lines = [f"{ic.html('search')} <b>Suche:</b> {esc(query)}"]
+    lines = [f"{ic.html('search')} <b>Search:</b> {esc(query)}"]
     for item in items:
         lines.append(item_line(item, projects.get(item.project_id)))
     await reply(update, "\n\n".join(lines))
@@ -61,7 +70,7 @@ async def _list_command(
             if project is None:
                 await reply(
                     update,
-                    f"{ic.html('warn')} Projekt „{esc(name)}“ nicht gefunden.",
+                    f"{ic.html('warn')} Project \"{esc(name)}\" not found.",
                 )
                 return
             project_filter = project.id
@@ -93,7 +102,7 @@ async def _list_command(
 
 def _render_page(title: str, page, projects: dict) -> str:
     if not page.items:
-        return f"{ic.html('section')} <b>{esc(title)}</b>\n<i>Noch nichts hier.</i>"
+        return f"{ic.html('section')} <b>{esc(title)}</b>\n<i>Nothing here yet.</i>"
     lines = [
         f"{ic.html('section')} <b>{esc(title)}</b> ({page.total})",
     ]
@@ -113,7 +122,7 @@ async def pagination_callback(update: Update, context: BotContextTypes) -> None:
     _, token, direction = parts
     view = state.get_view(context.user_data, token)
     if view is None:
-        await edit(update, f"{ic.html('warn')} Liste abgelaufen.")
+        await edit(update, f"{ic.html('warn')} List expired.")
         return
 
     ctx = app_context(context)

@@ -1,8 +1,8 @@
-"""Inline-Tastaturen und callback_data-Schema."""
+"""Inline keyboards, reply keyboard, and callback_data schema."""
 
 from __future__ import annotations
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
 from .. import icons as ic
 from ..db.models import Project
@@ -12,6 +12,33 @@ CAP = "cap"
 ITEM = "item"
 PAGE = "pg"
 NOOP = "noop"
+
+BTN_TASKS = "✅ Tasks"
+BTN_NOTES = "📝 Notes"
+BTN_PROJECTS = "📁 Projects"
+BTN_SEARCH = "🔍 Search"
+BTN_HELP = "❓ Help"
+BTN_SETTINGS = "⚙️ Settings"
+
+
+def main_reply_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [
+            [
+                KeyboardButton(BTN_TASKS),
+                KeyboardButton(BTN_NOTES),
+                KeyboardButton(BTN_PROJECTS),
+            ],
+            [
+                KeyboardButton(BTN_SEARCH),
+                KeyboardButton(BTN_HELP),
+                KeyboardButton(BTN_SETTINGS),
+            ],
+        ],
+        resize_keyboard=True,
+        is_persistent=True,
+        input_field_placeholder="Type a task or tap a button…",
+    )
 
 
 def _btn(text: str, *, icon: str | None = None, **kwargs) -> InlineKeyboardButton:
@@ -39,8 +66,8 @@ def project_picker(token: str, projects: list[Project]) -> InlineKeyboardMarkup:
         rows.append(row)
     rows.append(
         [
-            _btn("Neues Projekt", icon="edit", callback_data=f"{CAP}:newproj:{token}"),
-            _btn("Abbrechen", icon="no", callback_data=f"{CAP}:cancel:{token}"),
+            _btn("New project", icon="edit", callback_data=f"{CAP}:newproj:{token}"),
+            _btn("Cancel", icon="no", callback_data=f"{CAP}:cancel:{token}"),
         ]
     )
     return InlineKeyboardMarkup(rows)
@@ -56,7 +83,7 @@ def priority_picker(token: str) -> InlineKeyboardMarkup:
         ]
         for p in PRIORITIES
     ]
-    rows.append([_btn("Abbrechen", icon="no", callback_data=f"{CAP}:cancel:{token}")])
+    rows.append([_btn("Cancel", icon="no", callback_data=f"{CAP}:cancel:{token}")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -64,12 +91,12 @@ def confirm_draft(token: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
-                _btn("Speichern", icon="ok", callback_data=f"{CAP}:save:{token}"),
-                _btn("Projekt", icon="section", callback_data=f"{CAP}:reproj:{token}"),
+                _btn("Save", icon="ok", callback_data=f"{CAP}:save:{token}"),
+                _btn("Project", icon="section", callback_data=f"{CAP}:reproj:{token}"),
             ],
             [
-                _btn("Priorität", icon="stats", callback_data=f"{CAP}:reprio:{token}"),
-                _btn("Abbrechen", icon="no", callback_data=f"{CAP}:cancel:{token}"),
+                _btn("Priority", icon="stats", callback_data=f"{CAP}:reprio:{token}"),
+                _btn("Cancel", icon="no", callback_data=f"{CAP}:cancel:{token}"),
             ],
         ]
     )
@@ -79,10 +106,10 @@ def confirm_note(token: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
-                _btn("Speichern", icon="ok", callback_data=f"{CAP}:save:{token}"),
-                _btn("Projekt", icon="section", callback_data=f"{CAP}:reproj:{token}"),
+                _btn("Save", icon="ok", callback_data=f"{CAP}:save:{token}"),
+                _btn("Project", icon="section", callback_data=f"{CAP}:reproj:{token}"),
             ],
-            [_btn("Abbrechen", icon="no", callback_data=f"{CAP}:cancel:{token}")],
+            [_btn("Cancel", icon="no", callback_data=f"{CAP}:cancel:{token}")],
         ]
     )
 
@@ -90,8 +117,8 @@ def confirm_note(token: str) -> InlineKeyboardMarkup:
 def item_actions(item_id: int, *, is_task: bool) -> InlineKeyboardMarkup:
     row = []
     if is_task:
-        row.append(_btn("Erledigt", icon="ok", callback_data=f"{ITEM}:done:{item_id}"))
-    row.append(_btn("Löschen", icon="trash", callback_data=f"{ITEM}:del:{item_id}"))
+        row.append(_btn("Done", icon="ok", callback_data=f"{ITEM}:done:{item_id}"))
+    row.append(_btn("Delete", icon="trash", callback_data=f"{ITEM}:del:{item_id}"))
     return InlineKeyboardMarkup([row])
 
 
@@ -102,7 +129,7 @@ def pagination(
         return None
     row: list[InlineKeyboardButton] = []
     if has_prev:
-        row.append(_btn("Zurück", icon="refresh", callback_data=f"{PAGE}:{token}:prev"))
+        row.append(_btn("Back", icon="refresh", callback_data=f"{PAGE}:{token}:prev"))
     if has_next:
-        row.append(_btn("Weiter", icon="save", callback_data=f"{PAGE}:{token}:next"))
+        row.append(_btn("Next", icon="save", callback_data=f"{PAGE}:{token}:next"))
     return InlineKeyboardMarkup([row])

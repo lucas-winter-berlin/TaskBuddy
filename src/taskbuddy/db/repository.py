@@ -120,10 +120,10 @@ class TaskRepository:
             return None
         name = new_name.strip()
         if not name:
-            raise ValueError("Leerer Projektname")
+            raise ValueError("Empty project name")
         clash = await self.find_project_by_name(user_id, name)
         if clash is not None and clash.id != project.id:
-            raise ValueError(f"Name bereits vergeben: {clash.name}")
+            raise ValueError(f"Name already taken: {clash.name}")
         project.name = name
         # Key nur bei Custom-Projekten anpassen; Privat/Arbeit behalten stabile Keys.
         if project.kind == "custom":
@@ -165,7 +165,7 @@ class TaskRepository:
     ) -> Item:
         if item_type == "task":
             if priority not in PRIORITY_ORDER:
-                raise ValueError(f"Ungueltige Prioritaet: {priority!r}")
+                raise ValueError(f"Invalid priority: {priority!r}")
         else:
             priority = None
         item = Item(
