@@ -58,9 +58,8 @@ async def start(update: Update, context: BotContextTypes) -> None:
     await reply(
         update,
         f"{ic.html('ok')} <b>TaskBuddy</b> ready.\n"
-        f"Type a task, e.g. <code>Pay invoice – urgent</code>\n"
-        f"Or use the buttons below.\n\n"
-        f"{HELP_TEXT}",
+        f"Type a task, or use the buttons below.\n"
+        f"/help for all commands · /menu shows the keyboard again.",
         reply_markup=kb.main_reply_keyboard(),
     )
 

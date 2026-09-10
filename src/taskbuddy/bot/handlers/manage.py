@@ -6,6 +6,7 @@ from telegram import Update
 
 from ... import icons as ic
 from ...services.formatting import esc, project_line
+from .. import keyboards
 from ..context import BotContextTypes, app_context, edit, reply, user_id_of
 
 _PROJECT_USAGE = (
@@ -27,7 +28,11 @@ async def projects_command(update: Update, context: BotContextTypes) -> None:
     for project in projects:
         lines.append(project_line(project))
     lines.append(f"\n{_PROJECT_USAGE}")
-    await reply(update, "\n".join(lines))
+    await reply(
+        update,
+        "\n".join(lines),
+        reply_markup=keyboards.main_reply_keyboard(),
+    )
 
 
 async def project_command(update: Update, context: BotContextTypes) -> None:

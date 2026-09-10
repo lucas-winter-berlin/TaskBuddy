@@ -42,12 +42,20 @@ async def search_with_keyword(
         projects = {p.id: p for p in await repo.list_projects(uid)}
 
     if not items:
-        await reply(update, f"{ic.html('search')} Nothing found for \"{esc(query)}\".")
+        await reply(
+            update,
+            f"{ic.html('search')} Nothing found for \"{esc(query)}\".",
+            reply_markup=keyboards.main_reply_keyboard(),
+        )
         return
     lines = [f"{ic.html('search')} <b>Search:</b> {esc(query)}"]
     for item in items:
         lines.append(item_line(item, projects.get(item.project_id)))
-    await reply(update, "\n\n".join(lines))
+    await reply(
+        update,
+        "\n\n".join(lines),
+        reply_markup=keyboards.main_reply_keyboard(),
+    )
 
 
 async def _list_command(
@@ -91,12 +99,13 @@ async def _list_command(
         title=title,
     )
     token = state.put_view(context.user_data, view)
+    markup = keyboards.pagination(
+        token, offset=page.offset, has_prev=page.has_prev, has_next=page.has_next
+    )
     await reply(
         update,
         _render_page(title, page, by_id),
-        reply_markup=keyboards.pagination(
-            token, offset=page.offset, has_prev=page.has_prev, has_next=page.has_next
-        ),
+        reply_markup=markup or keyboards.main_reply_keyboard(),
     )
 
 
