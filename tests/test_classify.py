@@ -8,9 +8,9 @@ from taskbuddy.services.priority import format_priority, guess_priority
 
 
 def test_parse_note_prefix():
-    parsed = parse_input("notiz: Milch holen")
+    parsed = parse_input("note: get milk")
     assert parsed.item_type == "note"
-    assert parsed.title == "Milch holen"
+    assert parsed.title == "get milk"
 
 
 def test_parse_task_default():

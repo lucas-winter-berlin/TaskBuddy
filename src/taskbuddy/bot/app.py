@@ -25,16 +25,16 @@ from .handlers import common, manage, query, router
 logger = logging.getLogger(__name__)
 
 BOT_COMMANDS = [
-    BotCommand("task", "Neue Aufgabe"),
-    BotCommand("note", "Neue Notiz"),
-    BotCommand("tasks", "Aufgabenliste"),
-    BotCommand("notes", "Notizen"),
-    BotCommand("projects", "Projekte"),
-    BotCommand("project", "Projekt neu/umbenennen/löschen"),
-    BotCommand("done", "Aufgabe erledigen"),
-    BotCommand("suche", "Suche"),
-    BotCommand("settings", "Konfiguration"),
-    BotCommand("help", "Hilfe"),
+    BotCommand("task", "New task"),
+    BotCommand("note", "New note"),
+    BotCommand("tasks", "List tasks"),
+    BotCommand("notes", "List notes"),
+    BotCommand("projects", "List projects"),
+    BotCommand("project", "new / rename / delete project"),
+    BotCommand("done", "Complete a task"),
+    BotCommand("search", "Search"),
+    BotCommand("settings", "Settings"),
+    BotCommand("help", "Help"),
 ]
 
 
@@ -96,7 +96,8 @@ def _register_commands(application: Application, allowed) -> None:
         ("note", common.note_command),
         ("tasks", query.tasks_command),
         ("notes", query.notes_command),
-        ("suche", query.search_command),
+        ("search", query.search_command),
+        ("suche", query.search_command),  # legacy alias
         ("projects", manage.projects_command),
         ("project", manage.project_command),
         ("done", manage.done_command),
@@ -121,7 +122,7 @@ def _register_callbacks(application: Application) -> None:
 
 async def _reject_callback(update, context) -> None:
     if update.callback_query is not None:
-        await update.callback_query.answer("🔒 Dieser Bot ist privat.", show_alert=True)
+        await update.callback_query.answer("🔒 This bot is private.", show_alert=True)
 
 
 async def _post_init(application: Application) -> None:

@@ -9,11 +9,11 @@ from ...services.formatting import esc, project_line
 from ..context import BotContextTypes, app_context, edit, reply, user_id_of
 
 _PROJECT_USAGE = (
-    f"{ic.html('tip')} Nutzung:\n"
-    f"<code>/project neu Name</code>\n"
-    f"<code>/project umbenennen Alt -&gt; Neu</code>\n"
-    f"<code>/project löschen Name</code>\n"
-    f"(Privat/Arbeit können nicht gelöscht werden.)"
+    f"{ic.html('tip')} Usage:\n"
+    f"<code>/project new Name</code>\n"
+    f"<code>/project rename Old -&gt; New</code>\n"
+    f"<code>/project delete Name</code>\n"
+    f"(Privat/Arbeit cannot be deleted.)"
 )
 
 
@@ -39,13 +39,13 @@ async def project_command(update: Update, context: BotContextTypes) -> None:
     action = args[0].lower()
     rest = args[1:]
 
-    if action in {"neu", "new", "add"}:
+    if action in {"new", "add", "neu"}:
         await _project_create(update, context, " ".join(rest).strip())
         return
-    if action in {"löschen", "loeschen", "delete", "del", "remove", "rm"}:
+    if action in {"delete", "del", "remove", "rm", "löschen", "loeschen"}:
         await _project_delete(update, context, " ".join(rest).strip())
         return
-    if action in {"umbenennen", "rename", "ren"}:
+    if action in {"rename", "ren", "umbenennen"}:
         await _project_rename(update, context, " ".join(rest).strip())
         return
 
@@ -83,7 +83,7 @@ async def _project_delete(
     if not name:
         await reply(
             update,
-            f"{ic.html('tip')} Nutzung: <code>/project löschen Name</code>",
+            f"{ic.html('tip')} Usage: <code>/project delete Name</code>",
         )
         return
     uid = user_id_of(update)
@@ -102,7 +102,7 @@ async def _project_delete(
             await reply(
                 update,
                 f"{ic.html('lock')} <b>{esc(project.name)}</b> ist fest – "
-                f"kann nicht gelöscht werden (nur umbenennen).",
+                f"cannot be deleted (rename only).",
             )
             return
         removed = await repo.soft_delete_project(uid, project.id)
@@ -119,8 +119,8 @@ async def _project_rename(
     if "->" not in raw and "→" not in raw:
         await reply(
             update,
-            f"{ic.html('tip')} Nutzung: "
-            f"<code>/project umbenennen Alt -&gt; Neu</code>",
+            f"{ic.html('tip')} Usage: "
+            f"<code>/project rename Old -&gt; New</code>",
         )
         return
     sep = "->" if "->" in raw else "→"
@@ -129,8 +129,8 @@ async def _project_rename(
     if not old_name or not new_name:
         await reply(
             update,
-            f"{ic.html('warn')} Alter und neuer Name nötig "
-            f"(<code>Alt -&gt; Neu</code>).",
+            f"{ic.html('warn')} Old and new name required "
+            f"(<code>Old -&gt; New</code>).",
         )
         return
 

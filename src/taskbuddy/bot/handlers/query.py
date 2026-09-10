@@ -21,7 +21,7 @@ async def notes_command(update: Update, context: BotContextTypes) -> None:
 async def search_command(update: Update, context: BotContextTypes) -> None:
     args = context.args or []
     if not args:
-        await reply(update, f"{ic.html('tip')} Nutzung: <code>/suche Begriff</code>")
+        await reply(update, f"{ic.html('tip')} Usage: <code>/search keyword</code>")
         return
     query = " ".join(args).strip()
     uid = user_id_of(update)

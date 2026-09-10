@@ -12,27 +12,27 @@ from ..context import BotContextTypes, app_context, is_authorised, reply, user_i
 
 logger = logging.getLogger(__name__)
 
-HELP_TEXT = f"""{ic.html('tip')} <b>TaskBuddy – Befehle</b>
+HELP_TEXT = f"""{ic.html('tip')} <b>TaskBuddy – Commands</b>
 
-Einfach Text schicken → neue <b>Aufgabe</b>
-<code>notiz: …</code> oder /note → <b>Notiz</b>
+Send text → new <b>task</b>
+<code>note: …</code> or /note → <b>note</b>
 
-/tasks [Projekt] – Aufgaben (A→D)
-/notes [Projekt] – Notizen
-/projects – alle Projekte
-/project neu Name – Projekt anlegen
-/project umbenennen Alt -&gt; Neu
-/project löschen Name – Custom-Projekt (+ Inhalte)
-/done ID – Aufgabe erledigen (entfernen)
-/suche … – suchen
-/settings – Konfiguration
-/help – diese Hilfe
+/tasks [project] – tasks (A→D)
+/notes [project] – notes
+/projects – list projects
+/project new Name – create project
+/project rename Old -&gt; New
+/project delete Name – custom project (+ items)
+/done ID – complete task (remove)
+/search … – search
+/settings – config
+/help – this help
 
-Prioritäten:
-A Wichtig &amp; Dringend
-B Dringend &amp; Unwichtig
-C Wichtig &amp; Undringend
-D Unwichtig &amp; Undringend
+Priorities:
+A Important &amp; Urgent
+B Urgent &amp; Not important
+C Important &amp; Not urgent
+D Not important &amp; Not urgent
 """
 
 

@@ -45,15 +45,15 @@ SQLite file: `taskbuddy.db` in the project root.
 | Command | Purpose |
 |---------|---------|
 | (free text) | New task + confirm flow |
-| `/note …` | New note |
-| `/tasks [Projekt]` | Tasks sorted A→D |
-| `/notes [Projekt]` | Notes |
+| `/note …` or `note: …` | New note |
+| `/tasks [project]` | Tasks sorted A→D |
+| `/notes [project]` | Notes |
 | `/projects` | List projects |
-| `/project neu Name` | Create project |
-| `/project umbenennen Alt -> Neu` | Rename project |
-| `/project löschen Name` | Delete custom project (+ its items) |
+| `/project new Name` | Create project |
+| `/project rename Old -> New` | Rename project |
+| `/project delete Name` | Delete custom project (+ its items) |
 | `/done ID` | Complete/remove task |
-| `/suche …` | Search |
+| `/search …` | Search |
 | `/help` | Help |
 
 ## Tests
