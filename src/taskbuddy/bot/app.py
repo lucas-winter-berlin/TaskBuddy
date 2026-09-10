@@ -30,7 +30,7 @@ BOT_COMMANDS = [
     BotCommand("tasks", "Aufgabenliste"),
     BotCommand("notes", "Notizen"),
     BotCommand("projects", "Projekte"),
-    BotCommand("project", "Projekt anlegen"),
+    BotCommand("project", "Projekt neu/umbenennen/löschen"),
     BotCommand("done", "Aufgabe erledigen"),
     BotCommand("suche", "Suche"),
     BotCommand("settings", "Konfiguration"),

@@ -58,3 +58,29 @@ async def test_done_soft_deletes(db):
         deleted = await repo.soft_delete_item(3, item.id)
         assert deleted is not None
         assert await repo.get_item(3, item.id) is None
+
+
+@pytest.mark.asyncio
+async def test_rename_and_delete_custom_project(db):
+    async with db.session() as session:
+        repo = TaskRepository(session)
+        await repo.ensure_default_projects(9)
+        project = await repo.create_project(9, "Sidekick")
+        await repo.create_item(
+            user_id=9,
+            project_id=project.id,
+            item_type="task",
+            title="x",
+            priority="D",
+        )
+        renamed = await repo.rename_project(9, project.id, "Sidequest")
+        assert renamed is not None
+        assert renamed.name == "Sidequest"
+        assert renamed.key == "sidequest"
+        removed = await repo.soft_delete_project(9, project.id)
+        assert removed == 1
+        assert await repo.get_project(9, project.id) is None
+        # Privat darf nicht gelöscht werden
+        privat = await repo.find_project_by_key(9, "privat")
+        assert privat is not None
+        assert await repo.soft_delete_project(9, privat.id) is None

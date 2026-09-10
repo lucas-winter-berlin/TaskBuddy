@@ -112,13 +112,46 @@ class TaskRepository:
         await self.session.flush()
         return project
 
-    async def soft_delete_project(self, user_id: int, project_id: int) -> bool:
+    async def rename_project(
+        self, user_id: int, project_id: int, new_name: str
+    ) -> Project | None:
+        project = await self.get_project(user_id, project_id)
+        if project is None:
+            return None
+        name = new_name.strip()
+        if not name:
+            raise ValueError("Leerer Projektname")
+        clash = await self.find_project_by_name(user_id, name)
+        if clash is not None and clash.id != project.id:
+            raise ValueError(f"Name bereits vergeben: {clash.name}")
+        project.name = name
+        # Key nur bei Custom-Projekten anpassen; Privat/Arbeit behalten stabile Keys.
+        if project.kind == "custom":
+            base = slugify(name)
+            key = base
+            suffix = 2
+            while True:
+                existing = await self.find_project_by_key(user_id, key)
+                if existing is None or existing.id == project.id:
+                    break
+                key = f"{base}-{suffix}"[:64]
+                suffix += 1
+            project.key = key
+        await self.session.flush()
+        return project
+
+    async def soft_delete_project(self, user_id: int, project_id: int) -> int | None:
+        """Soft-Delete Custom-Projekt inkl. aller offenen Items. Liefert Anzahl Items."""
         project = await self.get_project(user_id, project_id)
         if project is None or project.kind in ("private", "work"):
-            return False
-        project.deleted_at = utcnow()
+            return None
+        now = utcnow()
+        page = await self.list_items(user_id, project_id=project_id, limit=10_000)
+        for item in page.items:
+            item.deleted_at = now
+        project.deleted_at = now
         await self.session.flush()
-        return True
+        return len(page.items)
 
     async def create_item(
         self,

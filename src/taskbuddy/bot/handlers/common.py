@@ -21,6 +21,8 @@ Einfach Text schicken → neue <b>Aufgabe</b>
 /notes [Projekt] – Notizen
 /projects – alle Projekte
 /project neu Name – Projekt anlegen
+/project umbenennen Alt -&gt; Neu
+/project löschen Name – Custom-Projekt (+ Inhalte)
 /done ID – Aufgabe erledigen (entfernen)
 /suche … – suchen
 /settings – Konfiguration

@@ -50,6 +50,8 @@ SQLite file: `taskbuddy.db` in the project root.
 | `/notes [Projekt]` | Notes |
 | `/projects` | List projects |
 | `/project neu Name` | Create project |
+| `/project umbenennen Alt -> Neu` | Rename project |
+| `/project löschen Name` | Delete custom project (+ its items) |
 | `/done ID` | Complete/remove task |
 | `/suche …` | Search |
 | `/help` | Help |

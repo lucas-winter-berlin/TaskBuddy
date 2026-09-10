@@ -6,8 +6,15 @@ from telegram import Update
 
 from ... import icons as ic
 from ...services.formatting import esc, project_line
-from .. import keyboards
 from ..context import BotContextTypes, app_context, edit, reply, user_id_of
+
+_PROJECT_USAGE = (
+    f"{ic.html('tip')} Nutzung:\n"
+    f"<code>/project neu Name</code>\n"
+    f"<code>/project umbenennen Alt -&gt; Neu</code>\n"
+    f"<code>/project löschen Name</code>\n"
+    f"(Privat/Arbeit können nicht gelöscht werden.)"
+)
 
 
 async def projects_command(update: Update, context: BotContextTypes) -> None:
@@ -19,21 +26,35 @@ async def projects_command(update: Update, context: BotContextTypes) -> None:
     lines = [f"{ic.html('section')} <b>Projekte</b>"]
     for project in projects:
         lines.append(project_line(project))
-    lines.append(
-        f"\n{ic.html('tip')} Neu: <code>/project neu Name</code>"
-    )
+    lines.append(f"\n{_PROJECT_USAGE}")
     await reply(update, "\n".join(lines))
 
 
 async def project_command(update: Update, context: BotContextTypes) -> None:
     args = context.args or []
-    if len(args) < 2 or args[0].lower() not in {"neu", "new", "add"}:
-        await reply(
-            update,
-            f"{ic.html('tip')} Nutzung: <code>/project neu Name</code>",
-        )
+    if not args:
+        await reply(update, _PROJECT_USAGE)
         return
-    name = " ".join(args[1:]).strip()
+
+    action = args[0].lower()
+    rest = args[1:]
+
+    if action in {"neu", "new", "add"}:
+        await _project_create(update, context, " ".join(rest).strip())
+        return
+    if action in {"löschen", "loeschen", "delete", "del", "remove", "rm"}:
+        await _project_delete(update, context, " ".join(rest).strip())
+        return
+    if action in {"umbenennen", "rename", "ren"}:
+        await _project_rename(update, context, " ".join(rest).strip())
+        return
+
+    await reply(update, _PROJECT_USAGE)
+
+
+async def _project_create(
+    update: Update, context: BotContextTypes, name: str
+) -> None:
     if not name:
         await reply(update, f"{ic.html('warn')} Bitte einen Namen angeben.")
         return
@@ -53,6 +74,86 @@ async def project_command(update: Update, context: BotContextTypes) -> None:
     await reply(
         update,
         f"{ic.html('ok')} Projekt angelegt:\n{project_line(project)}",
+    )
+
+
+async def _project_delete(
+    update: Update, context: BotContextTypes, name: str
+) -> None:
+    if not name:
+        await reply(
+            update,
+            f"{ic.html('tip')} Nutzung: <code>/project löschen Name</code>",
+        )
+        return
+    uid = user_id_of(update)
+    ctx = app_context(context)
+    async with ctx.db.session() as session:
+        repo = ctx.repository(session)
+        await repo.ensure_default_projects(uid)
+        project = await repo.find_project_by_name(uid, name)
+        if project is None:
+            await reply(
+                update,
+                f"{ic.html('warn')} Projekt „{esc(name)}“ nicht gefunden.",
+            )
+            return
+        if project.kind in ("private", "work"):
+            await reply(
+                update,
+                f"{ic.html('lock')} <b>{esc(project.name)}</b> ist fest – "
+                f"kann nicht gelöscht werden (nur umbenennen).",
+            )
+            return
+        removed = await repo.soft_delete_project(uid, project.id)
+    await reply(
+        update,
+        f"{ic.html('ok')} Projekt <b>{esc(project.name)}</b> gelöscht"
+        f" ({removed or 0} Einträge mit entfernt).",
+    )
+
+
+async def _project_rename(
+    update: Update, context: BotContextTypes, raw: str
+) -> None:
+    if "->" not in raw and "→" not in raw:
+        await reply(
+            update,
+            f"{ic.html('tip')} Nutzung: "
+            f"<code>/project umbenennen Alt -&gt; Neu</code>",
+        )
+        return
+    sep = "->" if "->" in raw else "→"
+    old_name, _, new_name = raw.partition(sep)
+    old_name, new_name = old_name.strip(), new_name.strip()
+    if not old_name or not new_name:
+        await reply(
+            update,
+            f"{ic.html('warn')} Alter und neuer Name nötig "
+            f"(<code>Alt -&gt; Neu</code>).",
+        )
+        return
+
+    uid = user_id_of(update)
+    ctx = app_context(context)
+    async with ctx.db.session() as session:
+        repo = ctx.repository(session)
+        await repo.ensure_default_projects(uid)
+        project = await repo.find_project_by_name(uid, old_name)
+        if project is None:
+            await reply(
+                update,
+                f"{ic.html('warn')} Projekt „{esc(old_name)}“ nicht gefunden.",
+            )
+            return
+        try:
+            updated = await repo.rename_project(uid, project.id, new_name)
+        except ValueError as exc:
+            await reply(update, f"{ic.html('warn')} {esc(str(exc))}")
+            return
+    await reply(
+        update,
+        f"{ic.html('ok')} Umbenannt:\n{project_line(updated)}",
     )
 
 
