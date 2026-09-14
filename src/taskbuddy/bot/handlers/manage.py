@@ -5,16 +5,18 @@ from __future__ import annotations
 from telegram import Update
 
 from ... import icons as ic
+from ...db.repository import BUILTIN_KINDS
 from ...services.formatting import esc, project_line
-from .. import keyboards
+from .. import keyboards, state
 from ..context import BotContextTypes, app_context, edit, reply, user_id_of
+from . import query as query_handlers
 
 _PROJECT_USAGE = (
     f"{ic.html('tip')} Usage:\n"
-    f"<code>/project new Name</code>\n"
     f"<code>/project rename Old -&gt; New</code>\n"
     f"<code>/project delete Name</code>\n"
-    f"(Privat/Arbeit cannot be deleted.)"
+    f"(Privat, Arbeit and Backlog cannot be deleted.)\n"
+    f"<code>/project delete</code> is only for leftover custom projects."
 )
 
 
@@ -45,7 +47,11 @@ async def project_command(update: Update, context: BotContextTypes) -> None:
     rest = args[1:]
 
     if action in {"new", "add", "neu"}:
-        await _project_create(update, context, " ".join(rest).strip())
+        await reply(
+            update,
+            f"{ic.html('tip')} Custom projects are gone.\n"
+            f"Use <b>Privat</b>, <b>Arbeit</b> or <b>Backlog</b>.",
+        )
         return
     if action in {"delete", "del", "remove", "rm", "löschen", "loeschen"}:
         await _project_delete(update, context, " ".join(rest).strip())
@@ -55,31 +61,6 @@ async def project_command(update: Update, context: BotContextTypes) -> None:
         return
 
     await reply(update, _PROJECT_USAGE)
-
-
-async def _project_create(
-    update: Update, context: BotContextTypes, name: str
-) -> None:
-    if not name:
-        await reply(update, f"{ic.html('warn')} Please provide a name.")
-        return
-    uid = user_id_of(update)
-    ctx = app_context(context)
-    async with ctx.db.session() as session:
-        repo = ctx.repository(session)
-        await repo.ensure_default_projects(uid)
-        existing = await repo.find_project_by_name(uid, name)
-        if existing:
-            await reply(
-                update,
-                f"{ic.html('warn')} Already exists: <b>{esc(existing.name)}</b>",
-            )
-            return
-        project = await repo.create_project(uid, name)
-    await reply(
-        update,
-        f"{ic.html('ok')} Project created:\n{project_line(project)}",
-    )
 
 
 async def _project_delete(
@@ -103,7 +84,7 @@ async def _project_delete(
                 f"{ic.html('warn')} Project \"{esc(name)}\" not found.",
             )
             return
-        if project.kind in ("private", "work"):
+        if project.kind in BUILTIN_KINDS:
             await reply(
                 update,
                 f"{ic.html('lock')} <b>{esc(project.name)}</b> is built-in – "
@@ -176,18 +157,121 @@ async def done_command(update: Update, context: BotContextTypes) -> None:
     await _remove_item(update, context, int(raw), as_done=True)
 
 
+async def _clear_filters(view: state.ListView | None) -> dict:
+    if view is None:
+        return {"exclude_kind": "backlog"}
+    if view.kind == "backlog":
+        return {"project_id": view.project_id}
+    if view.project_id is not None:
+        return {"project_id": view.project_id}
+    return {"exclude_kind": "backlog"}
+
+
+async def clear_command(update: Update, context: BotContextTypes) -> None:
+    uid = user_id_of(update)
+    ctx = app_context(context)
+    filters = await _clear_filters(None)
+    async with ctx.db.session() as session:
+        repo = ctx.repository(session)
+        page = await repo.list_items(uid, item_type="task", limit=1, **filters)
+        count = page.total
+    if count == 0:
+        await reply(update, f"{ic.html('ok')} No open tasks to delete.")
+        return
+    await reply(
+        update,
+        f"{ic.html('warn')} Delete <b>all {count} open tasks</b>?",
+        reply_markup=keyboards.confirm_clear_all(count),
+    )
+
+
+async def clear_callback(update: Update, context: BotContextTypes) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    parts = query.data.split(":")
+    if len(parts) < 2:
+        return
+    _, action, *rest = parts
+    token = rest[0] if rest else None
+    uid = user_id_of(update)
+    ctx = app_context(context)
+    view = state.get_view(context.user_data, token) if token else None
+    filters = await _clear_filters(view)
+
+    if action == "ask":
+        async with ctx.db.session() as session:
+            repo = ctx.repository(session)
+            count = (
+                await repo.list_items(uid, item_type="task", limit=1, **filters)
+            ).total
+        await query.answer()
+        if count == 0:
+            await edit(update, f"{ic.html('ok')} No open tasks to delete.")
+            return
+        await edit(
+            update,
+            f"{ic.html('warn')} Delete <b>all {count} open tasks</b>?",
+            reply_markup=keyboards.confirm_clear_all(count, token),
+        )
+        return
+
+    if action == "no":
+        await query.answer("Cancelled")
+        if token:
+            await query_handlers.send_task_list(
+                update, context, token, via_edit=True
+            )
+            return
+        await edit(update, f"{ic.html('no')} Cancelled.")
+        return
+
+    if action != "yes":
+        await query.answer()
+        return
+
+    async with ctx.db.session() as session:
+        repo = ctx.repository(session)
+        removed = await repo.soft_delete_all_tasks(uid, **filters)
+    await query.answer("Deleted")
+    if token:
+        await query_handlers.send_task_list(update, context, token, via_edit=True)
+        return
+    await edit(
+        update,
+        f"{ic.html('ok')} Deleted {removed} task{'s' if removed != 1 else ''}.",
+    )
+
+
 async def item_callback(update: Update, context: BotContextTypes) -> None:
     query = update.callback_query
     if query is None or not query.data:
         return
-    await query.answer()
     parts = query.data.split(":")
-    if len(parts) != 3:
+    if len(parts) < 3:
         return
-    _, action, raw_id = parts
+    _, action, raw_id, *rest = parts
+    if not raw_id.isdigit():
+        await query.answer()
+        return
     item_id = int(raw_id)
-    if action in {"done", "del"}:
-        await _remove_item(update, context, item_id, as_done=(action == "done"), via_edit=True)
+    view_token = rest[0] if rest else None
+    if action not in {"done", "del"}:
+        await query.answer()
+        return
+    if view_token:
+        await _remove_item(
+            update,
+            context,
+            item_id,
+            as_done=(action == "done"),
+            view_token=view_token,
+        )
+        return
+    await query.answer()
+    await _remove_item(
+        update, context, item_id, as_done=(action == "done"), via_edit=True
+    )
 
 
 async def _remove_item(
@@ -197,14 +281,23 @@ async def _remove_item(
     *,
     as_done: bool,
     via_edit: bool = False,
+    view_token: str | None = None,
 ) -> None:
     uid = user_id_of(update)
     ctx = app_context(context)
+    query = update.callback_query
     async with ctx.db.session() as session:
         repo = ctx.repository(session)
         item = await repo.get_item(uid, item_id)
         if item is None:
             text = f"{ic.html('warn')} Item <code>#{item_id}</code> not found."
+            if view_token:
+                if query is not None:
+                    await query.answer("Already gone", show_alert=False)
+                await query_handlers.send_task_list(
+                    update, context, view_token, via_edit=True
+                )
+                return
             if via_edit:
                 await edit(update, text)
             else:
@@ -212,6 +305,10 @@ async def _remove_item(
             return
         if as_done and item.type != "task":
             text = f"{ic.html('warn')} Only tasks can be marked done."
+            if view_token:
+                if query is not None:
+                    await query.answer("Not a task", show_alert=True)
+                return
             if via_edit:
                 await edit(update, text)
             else:
@@ -220,6 +317,14 @@ async def _remove_item(
         await repo.soft_delete_item(uid, item_id)
 
     verb = "done and removed" if as_done else "deleted"
+    if view_token:
+        if query is not None:
+            await query.answer("Done" if as_done else "Deleted")
+        await query_handlers.send_task_list(
+            update, context, view_token, via_edit=True
+        )
+        return
+
     text = f"{ic.html('ok')} <code>#{item_id}</code> {esc(item.title)} – {verb}."
     if via_edit:
         await edit(update, text)

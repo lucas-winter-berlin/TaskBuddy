@@ -16,21 +16,20 @@ logger = logging.getLogger(__name__)
 HELP_TEXT = f"""{ic.html('tip')} <b>TaskBuddy – Commands</b>
 
 Send text → new <b>task</b>
-<code>note: …</code> or /note → <b>note</b>
 
-Bottom keyboard – tap Tasks / Notes / Projects / Search
+Bottom keyboard – tap Tasks / Backlog / Search
 
-/tasks [project] – tasks (A→D)
-/notes [project] – notes
-/projects – list projects
-/project new Name – create project
-/project rename Old -&gt; New
-/project delete Name – custom project (+ items)
-/done ID – complete task (remove)
+/tasks [A|B|C|D] – active tasks (Privat &amp; Arbeit), grouped by project
+/backlog [A|B|C|D] – backlog only
+/done ID – complete a task (or tap Done after filtering A–D)
+/clear – delete all open active tasks
 /search … – search
 /menu – show keyboard again
 /settings – config
 /help – this help
+
+Projects when creating: Privat · Arbeit · Backlog
+Backlog is effortful work for a calmer phase – not the same as D.
 
 Priorities:
 A Important &amp; Urgent
@@ -91,7 +90,7 @@ async def settings_command(update: Update, context: BotContextTypes) -> None:
     )
 
 
-async def note_command(update: Update, context: BotContextTypes) -> None:
+async def task_command(update: Update, context: BotContextTypes) -> None:
     from . import capture
 
     args = context.args or []
@@ -100,20 +99,9 @@ async def note_command(update: Update, context: BotContextTypes) -> None:
         message = update.effective_message
         text = (message.text or "").partition(" ")[2].strip() if message else ""
     if not text:
-        await reply(update, f"{ic.html('tip')} Usage: <code>/note text</code>")
-        return
-    await capture.begin_capture(update, context, text, default_type="note")
-
-
-async def task_command(update: Update, context: BotContextTypes) -> None:
-    from . import capture
-
-    args = context.args or []
-    text = " ".join(args).strip()
-    if not text:
         await reply(update, f"{ic.html('tip')} Usage: <code>/task text</code>")
         return
-    await capture.begin_capture(update, context, text, default_type="task")
+    await capture.begin_capture(update, context, text)
 
 
 async def fallback(update: Update, context: BotContextTypes) -> None:

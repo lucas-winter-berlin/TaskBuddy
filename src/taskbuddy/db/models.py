@@ -45,7 +45,7 @@ class Base(DeclarativeBase):
 
 
 class Project(Base):
-    """Privat, Arbeit oder ein selbst angelegtes Projekt."""
+    """Privat, Arbeit, Backlog oder ein altes Custom-Projekt."""
 
     __tablename__ = "projects"
 
@@ -75,7 +75,7 @@ class Project(Base):
 
 
 class Item(Base):
-    """Aufgabe oder Notiz in einem Projekt."""
+    """Aufgabe in einem Projekt. type=note nur noch Altbestand."""
 
     __tablename__ = "items"
 

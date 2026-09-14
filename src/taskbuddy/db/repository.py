@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .models import Item, Project, utcnow
 
 PRIORITY_ORDER = {"A": 0, "B": 1, "C": 2, "D": 3}
+BUILTIN_KINDS = ("private", "work", "backlog")
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
@@ -41,12 +42,13 @@ class TaskRepository:
         self.session = session
 
     async def ensure_default_projects(self, user_id: int) -> list[Project]:
-        """Legt Privat und Arbeit an, falls noch nicht vorhanden."""
+        """Legt Privat, Arbeit und Backlog an, falls noch nicht vorhanden."""
         existing = await self.list_projects(user_id)
         by_key = {p.key: p for p in existing}
         seeds = [
             ("privat", "Privat", "private"),
             ("arbeit", "Arbeit", "work"),
+            ("backlog", "Backlog", "backlog"),
         ]
         created = False
         for key, name, kind in seeds:
@@ -66,7 +68,8 @@ class TaskRepository:
                 case(
                     (Project.kind == "private", 0),
                     (Project.kind == "work", 1),
-                    else_=2,
+                    (Project.kind == "backlog", 2),
+                    else_=3,
                 ),
                 Project.name.asc(),
             )
@@ -125,7 +128,7 @@ class TaskRepository:
         if clash is not None and clash.id != project.id:
             raise ValueError(f"Name already taken: {clash.name}")
         project.name = name
-        # Key nur bei Custom-Projekten anpassen; Privat/Arbeit behalten stabile Keys.
+        # Key nur bei Custom-Projekten anpassen; Defaults behalten stabile Keys.
         if project.kind == "custom":
             base = slugify(name)
             key = base
@@ -143,7 +146,7 @@ class TaskRepository:
     async def soft_delete_project(self, user_id: int, project_id: int) -> int | None:
         """Soft-Delete Custom-Projekt inkl. aller offenen Items. Liefert Anzahl Items."""
         project = await self.get_project(user_id, project_id)
-        if project is None or project.kind in ("private", "work"):
+        if project is None or project.kind in BUILTIN_KINDS:
             return None
         now = utcnow()
         page = await self.list_items(user_id, project_id=project_id, limit=10_000)
@@ -197,6 +200,42 @@ class TaskRepository:
         await self.session.flush()
         return item
 
+    def _project_kind_sort(self):
+        return case(
+            (Project.kind == "private", 0),
+            (Project.kind == "work", 1),
+            (Project.kind == "backlog", 2),
+            else_=3,
+        )
+
+    async def soft_delete_all_tasks(
+        self,
+        user_id: int,
+        *,
+        project_id: int | None = None,
+        exclude_kind: str | None = None,
+    ) -> int:
+        """Soft-delete offener Tasks, optional nach Projekt/Kind gefiltert."""
+        filters = [
+            Item.user_id == user_id,
+            Item.type == "task",
+            Item.deleted_at.is_(None),
+        ]
+        stmt = select(Item)
+        if project_id is not None:
+            filters.append(Item.project_id == project_id)
+        if exclude_kind is not None:
+            stmt = stmt.join(Project, Item.project_id == Project.id)
+            filters.append(Project.kind != exclude_kind)
+            filters.append(Project.deleted_at.is_(None))
+        result = await self.session.execute(stmt.where(*filters))
+        items = list(result.scalars().all())
+        now = utcnow()
+        for item in items:
+            item.deleted_at = now
+        await self.session.flush()
+        return len(items)
+
     def _priority_sort(self):
         return case(
             (Item.priority == "A", 0),
@@ -212,22 +251,43 @@ class TaskRepository:
         *,
         item_type: str | None = None,
         project_id: int | None = None,
+        priority: str | None = None,
+        exclude_kind: str | None = None,
         offset: int = 0,
         limit: int = 20,
     ) -> Page:
-        filters = [Item.user_id == user_id, Item.deleted_at.is_(None)]
+        filters = [
+            Item.user_id == user_id,
+            Item.deleted_at.is_(None),
+            Project.deleted_at.is_(None),
+        ]
         if item_type:
             filters.append(Item.type == item_type)
         if project_id is not None:
             filters.append(Item.project_id == project_id)
+        if priority is not None:
+            filters.append(Item.priority == priority)
+        if exclude_kind is not None:
+            filters.append(Project.kind != exclude_kind)
 
-        count_stmt = select(func.count()).select_from(Item).where(*filters)
+        count_stmt = (
+            select(func.count())
+            .select_from(Item)
+            .join(Project, Item.project_id == Project.id)
+            .where(*filters)
+        )
         total = int((await self.session.execute(count_stmt)).scalar_one())
 
         stmt: Select = (
             select(Item)
+            .join(Project, Item.project_id == Project.id)
             .where(*filters)
-            .order_by(self._priority_sort(), Item.created_at.desc())
+            .order_by(
+                self._project_kind_sort(),
+                Project.name.asc(),
+                self._priority_sort(),
+                Item.created_at.desc(),
+            )
             .offset(offset)
             .limit(limit)
         )
@@ -257,8 +317,14 @@ class TaskRepository:
             filters.append(Item.type == item_type)
         stmt = (
             select(Item)
-            .where(*filters)
-            .order_by(self._priority_sort(), Item.created_at.desc())
+            .join(Project, Item.project_id == Project.id)
+            .where(*filters, Project.deleted_at.is_(None))
+            .order_by(
+                self._project_kind_sort(),
+                Project.name.asc(),
+                self._priority_sort(),
+                Item.created_at.desc(),
+            )
             .limit(limit)
         )
         result = await self.session.execute(stmt)

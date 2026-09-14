@@ -8,7 +8,7 @@ from ... import icons as ic
 from .. import keyboards as kb
 from .. import state
 from ..context import BotContextTypes, app_context, is_authorised, reply
-from . import capture, common, manage, query
+from . import capture, common, query
 
 
 async def text_router(update: Update, context: BotContextTypes) -> None:
@@ -33,15 +33,12 @@ async def text_router(update: Update, context: BotContextTypes) -> None:
         return
 
     pending = state.get_pending(context.user_data)
-    if pending and pending.kind == "new_project":
-        await capture.handle_new_project_name(update, context, pending.ref, text)
-        return
     if pending and pending.kind == "menu_search":
         state.set_pending(context.user_data, None)
         await query.search_with_keyword(update, context, text)
         return
 
-    await capture.begin_capture(update, context, text, default_type="task")
+    await capture.begin_capture(update, context, text)
 
 
 def _normalize_menu_label(text: str) -> str:
@@ -58,8 +55,7 @@ def _menu_action_key(text: str) -> str | None:
     label = _normalize_menu_label(text)
     candidates = {
         _normalize_menu_label(kb.BTN_TASKS): "tasks",
-        _normalize_menu_label(kb.BTN_NOTES): "notes",
-        _normalize_menu_label(kb.BTN_PROJECTS): "projects",
+        _normalize_menu_label(kb.BTN_BACKLOG): "backlog",
         _normalize_menu_label(kb.BTN_SEARCH): "search",
         _normalize_menu_label(kb.BTN_HELP): "help",
         _normalize_menu_label(kb.BTN_SETTINGS): "settings",
@@ -69,8 +65,7 @@ def _menu_action_key(text: str) -> str | None:
     word = label.split(" ")[-1].lower() if label else ""
     return {
         "tasks": "tasks",
-        "notes": "notes",
-        "projects": "projects",
+        "backlog": "backlog",
         "search": "search",
         "help": "help",
         "settings": "settings",
@@ -84,13 +79,10 @@ async def _dispatch_menu_button(
     if action is None:
         return False
     if action == "tasks":
-        await query.tasks_command(update, context)
+        await query.tasks_command(update, context, args=[])
         return True
-    if action == "notes":
-        await query.notes_command(update, context)
-        return True
-    if action == "projects":
-        await manage.projects_command(update, context)
+    if action == "backlog":
+        await query.backlog_command(update, context, args=[])
         return True
     if action == "search":
         state.set_pending(

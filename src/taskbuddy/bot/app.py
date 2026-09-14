@@ -26,12 +26,10 @@ logger = logging.getLogger(__name__)
 
 BOT_COMMANDS = [
     BotCommand("task", "New task"),
-    BotCommand("note", "New note"),
     BotCommand("tasks", "List tasks"),
-    BotCommand("notes", "List notes"),
-    BotCommand("projects", "List projects"),
-    BotCommand("project", "new / rename / delete project"),
+    BotCommand("backlog", "List backlog"),
     BotCommand("done", "Complete a task"),
+    BotCommand("clear", "Delete all open tasks"),
     BotCommand("search", "Search"),
     BotCommand("settings", "Settings"),
     BotCommand("help", "Help"),
@@ -95,14 +93,14 @@ def _register_commands(application: Application, allowed) -> None:
         ("menu", common.menu_command),
         ("settings", common.settings_command),
         ("task", common.task_command),
-        ("note", common.note_command),
         ("tasks", query.tasks_command),
-        ("notes", query.notes_command),
+        ("backlog", query.backlog_command),
         ("search", query.search_command),
         ("suche", query.search_command),  # legacy alias
         ("projects", manage.projects_command),
         ("project", manage.project_command),
         ("done", manage.done_command),
+        ("clear", manage.clear_command),
     ]
     for name, callback in handlers:
         application.add_handler(CommandHandler(name, callback, filters=allowed))
@@ -115,6 +113,7 @@ def _register_callbacks(application: Application) -> None:
         (keyboards.CAP, capture.capture_callback),
         (keyboards.ITEM, manage.item_callback),
         (keyboards.PAGE, query.pagination_callback),
+        (keyboards.CLR, manage.clear_callback),
     ]
     for prefix, callback in routes:
         application.add_handler(

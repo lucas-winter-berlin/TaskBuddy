@@ -7,10 +7,6 @@ from dataclasses import dataclass
 
 from ..db.models import Project
 
-_NOTE_PREFIX = re.compile(
-    r"^\s*(?:notiz|note|memo)\s*[:\-–]\s*",
-    re.IGNORECASE,
-)
 _TASK_PREFIX = re.compile(
     r"^\s*(?:task|aufgabe|todo)\s*[:\-–]\s*",
     re.IGNORECASE,
@@ -23,11 +19,16 @@ _WORK = re.compile(
     r"\b(arbeit|job|büro|buero|kunde|meeting|standup|office|work|beruflich)\b",
     re.IGNORECASE,
 )
+_BACKLOG = re.compile(
+    r"\b(backlog|aufwendig|aufwändig|grosse sache|große sache|"
+    r"wenn ruhe|ruhige phase|lebensphase|nicht schnell)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
 class ParsedInput:
-    item_type: str  # task | note
+    item_type: str  # immer task
     title: str
     body: str | None
     forced_type: bool
@@ -43,12 +44,8 @@ class ProjectGuess:
 def parse_input(text: str, *, default_type: str = "task") -> ParsedInput:
     raw = text.strip()
     forced = False
-    item_type = default_type
-    if _NOTE_PREFIX.match(raw):
-        item_type = "note"
-        forced = True
-        raw = _NOTE_PREFIX.sub("", raw, count=1).strip()
-    elif _TASK_PREFIX.match(raw):
+    item_type = default_type or "task"
+    if _TASK_PREFIX.match(raw):
         item_type = "task"
         forced = True
         raw = _TASK_PREFIX.sub("", raw, count=1).strip()
@@ -58,7 +55,12 @@ def parse_input(text: str, *, default_type: str = "task") -> ParsedInput:
         body = rest.strip() or None
     else:
         title, body = raw, None
-    return ParsedInput(item_type=item_type, title=title.strip(), body=body, forced_type=forced)
+    return ParsedInput(
+        item_type=item_type or "task",
+        title=title.strip(),
+        body=body,
+        forced_type=forced,
+    )
 
 
 def guess_project(text: str, projects: list[Project]) -> ProjectGuess:
@@ -79,10 +81,13 @@ def guess_project(text: str, projects: list[Project]) -> ProjectGuess:
 
     private = next((p for p in projects if p.kind == "private"), None)
     work = next((p for p in projects if p.kind == "work"), None)
+    backlog = next((p for p in projects if p.kind == "backlog"), None)
 
     if private and _PRIVATE.search(text):
         return ProjectGuess(private.id, 0.8, "Privat-Keyword")
     if work and _WORK.search(text):
         return ProjectGuess(work.id, 0.8, "Arbeit-Keyword")
+    if backlog and _BACKLOG.search(text):
+        return ProjectGuess(backlog.id, 0.8, "Backlog-Keyword")
 
     return ProjectGuess(None, 0.2, "unklar")

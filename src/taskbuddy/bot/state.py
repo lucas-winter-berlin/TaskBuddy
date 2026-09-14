@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from itertools import count
 from typing import Any, Literal, MutableMapping
 
@@ -22,22 +22,22 @@ def new_token() -> str:
 
 @dataclass
 class Draft:
-    """Aufgabe/Notiz, die gerade erfasst wird."""
+    """Aufgabe, die gerade erfasst wird."""
 
-    item_type: str  # task | note
     title: str
     body: str | None = None
     project_id: int | None = None
     priority: str | None = None
     project_confidence: float = 0.0
     priority_confidence: float = 0.0
-    awaiting: Literal["project", "priority", "new_project", "confirm"] = "project"
+    awaiting: Literal["project", "priority", "confirm"] = "project"
 
 
 @dataclass
 class ListView:
-    kind: Literal["tasks", "notes", "search"]
+    kind: Literal["tasks", "backlog", "search"] = "tasks"
     project_id: int | None = None
+    priority: str | None = None
     argument: str = ""
     offset: int = 0
     title: str = ""
@@ -45,8 +45,8 @@ class ListView:
 
 @dataclass
 class Pending:
-    kind: Literal["new_project", "menu_search"]
-    ref: str
+    kind: Literal["menu_search"]
+    ref: str = ""
 
 
 def _bucket(user_data: MutableMapping[str, Any], name: str) -> dict[str, Any]:

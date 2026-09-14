@@ -10,24 +10,28 @@ from .priority import PRIORITIES
 
 logger = logging.getLogger(__name__)
 
-PROMPT = """Du klassifizierst eine private Todo/Notiz fuer TaskBuddy.
+PROMPT = """Du klassifizierst eine private Aufgabe fuer TaskBuddy.
 
 Text:
 {text}
-
-Item-Typ: {item_type}
 
 Bekannte Projekte (id|name|kind):
 {projects}
 
 Regeln:
 - Waehle genau EIN project_id aus der Liste, oder NONE wenn unklar.
-- Nur bei Tasks: waehle Prioritaet A, B, C oder D:
+- Projekte:
+  - private/Privat: persoenlich, Zuhause, Familie
+  - work/Arbeit: Job, Buero, Meetings, Kunden
+  - backlog/Backlog: aufwendige Aufgaben, die in einer ruhigeren Lebensphase
+    erledigt werden. NICHT dasselbe wie Prioritaet D.
+- Waehle Prioritaet A, B, C oder D:
   A = Wichtig & Dringend
   B = Dringend & Unwichtig
   C = Wichtig & Undringend
   D = Unwichtig & Undringend
-- Bei Notizen: priority = NONE
+- Backlog ist ein Projekt, keine Prioritaet. Eine Backlog-Aufgabe kann A–D sein.
+  D heisst unwichtig und nicht dringend – nicht "spaeter wenn mehr Ruhe".
 - Sei konservativ: lieber NONE als raten.
 
 Antworte exakt in einer Zeile:
@@ -62,7 +66,6 @@ class GeminiClassifier:
         project_lines = "\n".join(f"{pid}|{name}|{kind}" for pid, name, kind in projects)
         prompt = PROMPT.format(
             text=text,
-            item_type=item_type,
             projects=project_lines,
         )
         try:
