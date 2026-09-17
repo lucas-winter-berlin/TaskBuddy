@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import count
 from typing import Any, Literal, MutableMapping
 
@@ -31,6 +31,7 @@ class Draft:
     project_confidence: float = 0.0
     priority_confidence: float = 0.0
     awaiting: Literal["project", "priority", "confirm"] = "project"
+    subtasks: list[tuple[str, bool]] = field(default_factory=list)
 
 
 @dataclass
@@ -45,7 +46,7 @@ class ListView:
 
 @dataclass
 class Pending:
-    kind: Literal["menu_search"]
+    kind: Literal["menu_search", "edit_title", "edit_notes", "edit_subtask"]
     ref: str = ""
 
 

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from telegram import Update
 
-from ... import icons as ic
-from ...services.formatting import esc, grouped_task_list
+from ...services.formatting import grouped_task_list
 from ...services.priority import PRIORITIES
+from .. import copy as txt
 from .. import keyboards, state
-from ..context import BotContextTypes, app_context, edit, reply, user_id_of
+from ..context import BotContextTypes, app_context, respond, user_id_of
 
 
 def parse_tasks_args(args: list[str]) -> tuple[str | None, str | None]:
@@ -28,12 +28,7 @@ def parse_tasks_args(args: list[str]) -> tuple[str | None, str | None]:
 def _list_title(
     kind: str, project_name: str | None, priority: str | None
 ) -> str:
-    parts = ["Backlog" if kind == "backlog" else "Tasks"]
-    if kind != "backlog" and project_name:
-        parts.append(project_name)
-    if priority:
-        parts.append(priority)
-    return " · ".join(parts)
+    return "Backlog" if kind == "backlog" else "Aufgaben"
 
 
 def _query_kwargs(view: state.ListView) -> dict:
@@ -70,9 +65,9 @@ async def tasks_command(
         if project_name:
             project = await repo.find_project_by_name(uid, project_name)
             if project is None:
-                await reply(
+                await respond(
                     update,
-                    f"{ic.html('warn')} Project \"{esc(project_name)}\" not found.",
+                    txt.project_missing(project_name),
                 )
                 return
             project_id = project.id
@@ -106,7 +101,7 @@ async def backlog_command(
         await repo.ensure_default_projects(uid)
         backlog = await repo.find_project_by_key(uid, "backlog")
         if backlog is None:
-            await reply(update, f"{ic.html('warn')} Backlog is not set up yet.")
+            await respond(update, txt.BACKLOG_MISSING)
             return
         project_id = backlog.id
 
@@ -125,7 +120,7 @@ async def backlog_command(
 async def search_command(update: Update, context: BotContextTypes) -> None:
     args = context.args or []
     if not args:
-        await reply(update, f"{ic.html('tip')} Usage: <code>/search keyword</code>")
+        await respond(update, txt.SEARCH_HINT)
         return
     await search_with_keyword(update, context, " ".join(args).strip())
 
@@ -135,7 +130,7 @@ async def search_with_keyword(
 ) -> None:
     query = keyword.strip()
     if not query:
-        await reply(update, f"{ic.html('tip')} Usage: <code>/search keyword</code>")
+        await respond(update, txt.SEARCH_HINT)
         return
     uid = user_id_of(update)
     ctx = app_context(context)
@@ -145,23 +140,17 @@ async def search_with_keyword(
         items = await repo.search_items(
             uid, query, item_type="task", limit=ctx.settings.page_size
         )
-        projects = {p.id: p for p in await repo.list_projects(uid)}
+        counts = await repo.subtask_counts(uid, [item.id for item in items])
 
     if not items:
-        await reply(
+        await respond(
             update,
-            f"{ic.html('search')} Nothing found for \"{esc(query)}\".",
+            txt.search_empty(query),
             reply_markup=keyboards.main_reply_keyboard(),
         )
         return
-    text = grouped_task_list(
-        f"Search: {query}",
-        items,
-        projects,
-        total=len(items),
-        group_by_project=True,
-    )
-    await reply(
+    text = grouped_task_list(items, subtask_counts=counts)
+    await respond(
         update,
         text,
         reply_markup=keyboards.main_reply_keyboard(),
@@ -177,11 +166,7 @@ async def send_task_list(
 ) -> None:
     view = state.get_view(context.user_data, token)
     if view is None:
-        text = f"{ic.html('warn')} List expired."
-        if via_edit:
-            await edit(update, text)
-        else:
-            await reply(update, text)
+        await respond(update, txt.LIST_EXPIRED, via_edit=via_edit)
         return
 
     ctx = app_context(context)
@@ -190,7 +175,6 @@ async def send_task_list(
     kwargs = _query_kwargs(view)
     async with ctx.db.session() as session:
         repo = ctx.repository(session)
-        projects = {p.id: p for p in await repo.list_projects(uid)}
         page = await repo.list_items(
             uid, offset=view.offset, limit=step, **kwargs
         )
@@ -199,16 +183,9 @@ async def send_task_list(
             page = await repo.list_items(
                 uid, offset=view.offset, limit=step, **kwargs
             )
+        counts = await repo.subtask_counts(uid, [item.id for item in page.items])
 
-    view.title = _list_title(view.kind, view.argument or None, view.priority)
-    group_by_project = view.kind == "tasks" and view.project_id is None
-    text = grouped_task_list(
-        view.title,
-        page.items,
-        projects,
-        total=page.total,
-        group_by_project=group_by_project,
-    )
+    text = grouped_task_list(page.items, subtask_counts=counts)
     markup = keyboards.task_list_keyboard(
         token,
         page.items,
@@ -216,10 +193,7 @@ async def send_task_list(
         has_next=page.has_next,
         priority=view.priority,
     )
-    if via_edit:
-        await edit(update, text, reply_markup=markup)
-    else:
-        await reply(update, text, reply_markup=markup)
+    await respond(update, text, via_edit=via_edit, reply_markup=markup)
 
 
 async def pagination_callback(update: Update, context: BotContextTypes) -> None:
@@ -233,7 +207,7 @@ async def pagination_callback(update: Update, context: BotContextTypes) -> None:
     _, token, action = parts
     view = state.get_view(context.user_data, token)
     if view is None:
-        await edit(update, f"{ic.html('warn')} List expired.")
+        await respond(update, txt.LIST_EXPIRED, via_edit=True)
         return
 
     ctx = app_context(context)

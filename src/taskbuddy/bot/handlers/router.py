@@ -4,20 +4,18 @@ from __future__ import annotations
 
 from telegram import Update
 
-from ... import icons as ic
+from ...services.intent import parse_text_intent
+from .. import copy as txt
 from .. import keyboards as kb
 from .. import state
-from ..context import BotContextTypes, app_context, is_authorised, reply
-from . import capture, common, query
+from ..context import BotContextTypes, app_context, is_authorised, respond
+from . import capture, manage, query
 
 
 async def text_router(update: Update, context: BotContextTypes) -> None:
     settings = app_context(context).settings
     if not is_authorised(update, settings):
-        await reply(
-            update,
-            f"{ic.html('lock')} This bot is private.",
-        )
+        await respond(update, txt.PRIVATE_LOCK)
         return
 
     message = update.effective_message
@@ -27,7 +25,6 @@ async def text_router(update: Update, context: BotContextTypes) -> None:
     if not text:
         return
 
-    # Keyboard taps win over stale pending prompts.
     if await _dispatch_menu_button(update, context, text):
         state.set_pending(context.user_data, None)
         return
@@ -36,6 +33,19 @@ async def text_router(update: Update, context: BotContextTypes) -> None:
     if pending and pending.kind == "menu_search":
         state.set_pending(context.user_data, None)
         await query.search_with_keyword(update, context, text)
+        return
+    if pending and pending.kind in {"edit_title", "edit_notes", "edit_subtask"}:
+        if await manage.apply_pending_edit(update, context, pending, text):
+            return
+
+    intent = parse_text_intent(text)
+    if intent is not None:
+        handlers = {
+            "done": manage.handle_done_query,
+            "undo": manage.handle_undo_query,
+            "edit": manage.handle_edit_query,
+        }
+        await handlers[intent.kind](update, context, intent.query)
         return
 
     await capture.begin_capture(update, context, text)
@@ -57,18 +67,16 @@ def _menu_action_key(text: str) -> str | None:
         _normalize_menu_label(kb.BTN_TASKS): "tasks",
         _normalize_menu_label(kb.BTN_BACKLOG): "backlog",
         _normalize_menu_label(kb.BTN_SEARCH): "search",
-        _normalize_menu_label(kb.BTN_HELP): "help",
-        _normalize_menu_label(kb.BTN_SETTINGS): "settings",
     }
     if label in candidates:
         return candidates[label]
     word = label.split(" ")[-1].lower() if label else ""
     return {
         "tasks": "tasks",
+        "aufgaben": "tasks",
         "backlog": "backlog",
         "search": "search",
-        "help": "help",
-        "settings": "settings",
+        "suchen": "search",
     }.get(word)
 
 
@@ -88,16 +96,6 @@ async def _dispatch_menu_button(
         state.set_pending(
             context.user_data, state.Pending(kind="menu_search", ref="")
         )
-        await reply(
-            update,
-            f"{ic.html('search')} Send a search keyword "
-            f"(or type a new task instead).",
-        )
-        return True
-    if action == "help":
-        await common.help_command(update, context)
-        return True
-    if action == "settings":
-        await common.settings_command(update, context)
+        await respond(update, txt.SEARCH_PROMPT)
         return True
     return False

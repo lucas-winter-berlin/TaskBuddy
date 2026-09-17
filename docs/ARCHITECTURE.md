@@ -10,18 +10,21 @@ Single-user Telegram bot for tasks.
 
 ## Domain
 
-- **Project** — `private` / `work` / `backlog` (seed: Privat, Arbeit, Backlog). Leftover `custom` projects from v1 can still be listed/deleted.
+- **Project** — `private` / `work` / `backlog` (seed: Privat, Arbeit, Backlog)
 - **Item** — `task` with priority A–D (`type=note` is leftover only and not shown)
-- Main `/tasks` list is Privat & Arbeit only, grouped by project then A–D
-- `/backlog` lists backlog tasks separately
-- Done tasks are soft-deleted (`deleted_at`)
+- **Subtask** — checklist rows on a task (`subtasks` table); not listed as own tasks
+- `Item.body` is the optional description/notes (shown indented with `-` under the title)
+- Main task list is Privat & Arbeit only, grouped by project then A–D
+- Backlog lists parked tasks separately
+- Done tasks are soft-deleted (`deleted_at`) and listed/restored with `/undo` or `undo 12`
+- Unique subtask names can be checked off with `done …`
 - **Backlog** is a project for effortful work in a calmer phase — not priority D
 
 ## Flow
 
-Text → parse → heuristic (+ optional Gemini) → confirm project/priority via inline buttons → save.
+Text → parse (title / notes / `-` subtasks) → heuristic (+ optional Gemini) → confirm project/priority via inline buttons → save.
 
-Task list is grouped by A–D, filterable, with per-item Done buttons and `/clear`.
+Lists are grouped by A–D. Open a task with `#12`. Complete with `done name`. Restore with `/undo` then `undo 12`.
 
 ## Layout
 
@@ -29,5 +32,5 @@ Task list is grouped by A–D, filterable, with per-item Done buttons and `/clea
 src/taskbuddy/
   bot/handlers/   capture, query, manage, common, router
   db/             models, repository, engine
-  services/       classify, priority, formatting, gemini
+  services/       classify, priority, formatting, gemini, intent
 ```

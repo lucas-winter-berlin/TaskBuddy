@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from sqlalchemy import Select, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import Item, Project, utcnow
+from .models import Item, Project, Subtask, utcnow
 
 PRIORITY_ORDER = {"A": 0, "B": 1, "C": 2, "D": 3}
 BUILTIN_KINDS = ("private", "work", "backlog")
@@ -183,14 +183,75 @@ class TaskRepository:
         await self.session.flush()
         return item
 
-    async def get_item(self, user_id: int, item_id: int) -> Item | None:
-        stmt = select(Item).where(
-            Item.id == item_id,
-            Item.user_id == user_id,
-            Item.deleted_at.is_(None),
-        )
+    async def update_item(
+        self,
+        user_id: int,
+        item_id: int,
+        *,
+        title: str | None = None,
+        body: str | None = ...,
+        priority: str | None = None,
+        project_id: int | None = None,
+    ) -> Item | None:
+        item = await self.get_item(user_id, item_id)
+        if item is None:
+            return None
+        if title is not None:
+            cleaned = title.strip()
+            if not cleaned:
+                raise ValueError("Empty title")
+            item.title = cleaned
+        if body is not ...:
+            item.body = (body.strip() if body else None) or None
+        if priority is not None:
+            if item.type == "task" and priority not in PRIORITY_ORDER:
+                raise ValueError(f"Invalid priority: {priority!r}")
+            item.priority = priority
+        if project_id is not None:
+            project = await self.get_project(user_id, project_id)
+            if project is None:
+                raise ValueError("Project not found")
+            item.project_id = project_id
+        item.updated_at = utcnow()
+        await self.session.flush()
+        return item
+
+    async def list_open_tasks(self, user_id: int, *, limit: int = 500) -> list[Item]:
+        page = await self.list_items(user_id, item_type="task", limit=limit)
+        return page.items
+
+    async def get_item(
+        self, user_id: int, item_id: int, *, include_deleted: bool = False
+    ) -> Item | None:
+        filters = [Item.id == item_id, Item.user_id == user_id]
+        if not include_deleted:
+            filters.append(Item.deleted_at.is_(None))
+        stmt = select(Item).where(*filters)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def restore_item(self, user_id: int, item_id: int) -> Item | None:
+        item = await self.get_item(user_id, item_id, include_deleted=True)
+        if item is None or item.deleted_at is None:
+            return None
+        item.deleted_at = None
+        item.updated_at = utcnow()
+        await self.session.flush()
+        return item
+
+    async def list_deleted_tasks(self, user_id: int, *, limit: int = 50) -> list[Item]:
+        stmt = (
+            select(Item)
+            .where(
+                Item.user_id == user_id,
+                Item.type == "task",
+                Item.deleted_at.isnot(None),
+            )
+            .order_by(Item.deleted_at.desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def soft_delete_item(self, user_id: int, item_id: int) -> Item | None:
         item = await self.get_item(user_id, item_id)
@@ -325,6 +386,100 @@ class TaskRepository:
                 self._priority_sort(),
                 Item.created_at.desc(),
             )
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def list_subtasks(self, user_id: int, item_id: int) -> list[Subtask]:
+        stmt = (
+            select(Subtask)
+            .where(
+                Subtask.user_id == user_id,
+                Subtask.item_id == item_id,
+                Subtask.deleted_at.is_(None),
+            )
+            .order_by(Subtask.position.asc(), Subtask.id.asc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def add_subtasks(
+        self,
+        user_id: int,
+        item_id: int,
+        entries: list[tuple[str, bool]],
+    ) -> list[Subtask]:
+        existing = await self.list_subtasks(user_id, item_id)
+        position = (existing[-1].position + 1) if existing else 0
+        created: list[Subtask] = []
+        now = utcnow()
+        for title, done in entries:
+            cleaned = title.strip()
+            if not cleaned:
+                continue
+            row = Subtask(
+                user_id=user_id,
+                item_id=item_id,
+                title=cleaned,
+                position=position,
+                done_at=now if done else None,
+            )
+            self.session.add(row)
+            created.append(row)
+            position += 1
+        if created:
+            await self.session.flush()
+        return created
+
+    async def toggle_subtask(self, user_id: int, subtask_id: int) -> Subtask | None:
+        stmt = select(Subtask).where(
+            Subtask.id == subtask_id,
+            Subtask.user_id == user_id,
+            Subtask.deleted_at.is_(None),
+        )
+        result = await self.session.execute(stmt)
+        row = result.scalar_one_or_none()
+        if row is None:
+            return None
+        parent = await self.get_item(user_id, row.item_id)
+        if parent is None:
+            return None
+        row.done_at = None if row.done_at else utcnow()
+        await self.session.flush()
+        return row
+
+    async def subtask_counts(
+        self, user_id: int, item_ids: list[int]
+    ) -> dict[int, tuple[int, int]]:
+        if not item_ids:
+            return {}
+        stmt = select(Subtask).where(
+            Subtask.user_id == user_id,
+            Subtask.item_id.in_(item_ids),
+            Subtask.deleted_at.is_(None),
+        )
+        result = await self.session.execute(stmt)
+        totals: dict[int, list[int]] = {}
+        for row in result.scalars().all():
+            pair = totals.setdefault(row.item_id, [0, 0])
+            pair[1] += 1
+            if row.done_at is not None:
+                pair[0] += 1
+        return {item_id: (done, total) for item_id, (done, total) in totals.items() if total}
+
+    async def list_open_subtasks(self, user_id: int, *, limit: int = 500) -> list[Subtask]:
+        stmt = (
+            select(Subtask)
+            .join(Item, Subtask.item_id == Item.id)
+            .where(
+                Subtask.user_id == user_id,
+                Subtask.deleted_at.is_(None),
+                Subtask.done_at.is_(None),
+                Item.deleted_at.is_(None),
+                Item.type == "task",
+            )
+            .order_by(Subtask.id.asc())
             .limit(limit)
         )
         result = await self.session.execute(stmt)

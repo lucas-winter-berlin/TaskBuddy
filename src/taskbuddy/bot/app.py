@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from telegram import BotCommand
+from telegram import BotCommand, BotCommandScopeAllPrivateChats, BotCommandScopeDefault
 from telegram.ext import (
     Application,
     ApplicationBuilder,
@@ -18,22 +18,23 @@ from telegram.ext import (
 from ..config import Settings
 from ..db import Database
 from ..services.gemini import GeminiClassifier
-from . import jobs, keyboards
+from . import keyboards
 from .context import AppContext, BotContextTypes, app_context, is_authorised
 from .handlers import common, manage, query, router
 
 logger = logging.getLogger(__name__)
 
 BOT_COMMANDS = [
-    BotCommand("task", "New task"),
-    BotCommand("tasks", "List tasks"),
-    BotCommand("backlog", "List backlog"),
-    BotCommand("done", "Complete a task"),
-    BotCommand("clear", "Delete all open tasks"),
-    BotCommand("search", "Search"),
-    BotCommand("settings", "Settings"),
-    BotCommand("help", "Help"),
-    BotCommand("menu", "Show reply keyboard"),
+    BotCommand("tasks", "Aufgaben"),
+    BotCommand("backlog", "Backlog"),
+    BotCommand("done", "Erledigen"),
+    BotCommand("edit", "Öffnen"),
+    BotCommand("undo", "Wiederherstellen"),
+    BotCommand("clear", "Alle löschen"),
+    BotCommand("search", "Suchen"),
+    BotCommand("settings", "Einstellungen"),
+    BotCommand("help", "Hilfe"),
+    BotCommand("menu", "Tastatur"),
 ]
 
 
@@ -96,10 +97,9 @@ def _register_commands(application: Application, allowed) -> None:
         ("tasks", query.tasks_command),
         ("backlog", query.backlog_command),
         ("search", query.search_command),
-        ("suche", query.search_command),  # legacy alias
-        ("projects", manage.projects_command),
-        ("project", manage.project_command),
         ("done", manage.done_command),
+        ("edit", manage.edit_command),
+        ("undo", manage.undo_command),
         ("clear", manage.clear_command),
     ]
     for name, callback in handlers:
@@ -112,6 +112,7 @@ def _register_callbacks(application: Application) -> None:
     routes = [
         (keyboards.CAP, capture.capture_callback),
         (keyboards.ITEM, manage.item_callback),
+        (keyboards.EDT, manage.edit_callback),
         (keyboards.PAGE, query.pagination_callback),
         (keyboards.CLR, manage.clear_callback),
     ]
@@ -123,14 +124,20 @@ def _register_callbacks(application: Application) -> None:
 
 async def _reject_callback(update, context) -> None:
     if update.callback_query is not None:
-        await update.callback_query.answer("🔒 This bot is private.", show_alert=True)
+        await update.callback_query.answer("Dieser Bot ist privat.", show_alert=True)
+
+
+async def _clear_and_set_commands(bot) -> None:
+    """Alte Slash-Befehle entfernen, dann die aktuelle Liste setzen."""
+    for scope in (BotCommandScopeDefault(), BotCommandScopeAllPrivateChats()):
+        await bot.delete_my_commands(scope=scope)
+    await bot.set_my_commands(BOT_COMMANDS)
 
 
 async def _post_init(application: Application) -> None:
     ctx: AppContext = application.bot_data["app_context"]
     await ctx.db.create_schema()
-    await application.bot.set_my_commands(BOT_COMMANDS)
-    jobs.schedule_jobs(application)
+    await _clear_and_set_commands(application.bot)
     me = await application.bot.get_me()
     logger.info("Bot @%s ist bereit", me.username)
 

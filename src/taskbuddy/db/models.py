@@ -117,3 +117,33 @@ class Item(Base):
             "created_at": _iso(self.created_at),
             "updated_at": _iso(self.updated_at),
         }
+
+
+class Subtask(Base):
+    """Checklisten-Punkt an einer Task – nicht als eigene Task in /tasks."""
+
+    __tablename__ = "subtasks"
+
+    id: Mapped[int] = mapped_column(PKType, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    item_id: Mapped[int] = mapped_column(
+        PKType, ForeignKey("items.id"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow, server_default=func.now()
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (Index("ix_subtasks_item_active", "item_id", "deleted_at"),)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "item_id": self.item_id,
+            "title": self.title,
+            "position": self.position,
+            "done_at": _iso(self.done_at),
+        }

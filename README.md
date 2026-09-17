@@ -3,19 +3,27 @@
 Personal Telegram bot for **tasks**, filed into **Privat**, **Arbeit**, or
 **Backlog** — with Eisenhower priorities **A–D**.
 
-**Single-user · German UI · Python 3.11+ · SQLite locally**
+**Single-user · Python 3.11+ · SQLite locally / Postgres on Railway**
 
-## Features
+## How to use
 
-- Paste text → new task
-- Detects Privat / Arbeit / Backlog; asks with buttons if unclear
-- Task list grouped by **project**, then A→D (Backlog has its own list)
-- Filter A–D; Done buttons only after picking a priority (not on All)
-- **Backlog** is for effortful work to do in a calmer life phase — not the same as D
-- `/backlog` or the Backlog keyboard button shows parked tasks
-- `/done ID` still completes a task
-- `/clear` deletes all open active tasks (with confirmation)
-- Optional Gemini for classification
+Type a task. Extra lines are notes; lines starting with `-` become subtasks.
+
+| You type | What happens |
+|----------|----------------|
+| `Buy milk` | New task (confirm project/priority) |
+| `#12` | Open that task with notes and subtasks |
+| `edit Steuer` / `bearbeiten 12` | Same card, then change title/notes/prio/project |
+| `done Steuer` / `erledigt …` / `fertig #12` | Complete the task |
+| `undo` or `/undo` | List completed tasks |
+| `undo 12` / `/undo 12` | Restore that task |
+| Keyboard **Tasks** / **Backlog** / **Search** | Lists and search |
+
+Filter A–D in the list to get Done buttons. `/clear` deletes all open active tasks (confirm). `/help`, `/menu`, `/settings` stay as slash commands.
+
+**Backlog** is effortful work for a calmer phase — not the same as D.
+
+Optional Gemini (env `GEMINI_API_KEY`) guesses project and priority; without a key, keywords only.
 
 ## Quick start (local SQLite)
 
@@ -38,18 +46,6 @@ python main.py
 ```
 
 SQLite file: `taskbuddy.db` in the project root.
-
-## Commands
-
-| Command | Purpose |
-|---------|---------|
-| (free text) | New task + confirm flow |
-| `/tasks [A\|B\|C\|D]` | Active tasks (Privat & Arbeit), grouped by project |
-| `/backlog [A\|B\|C\|D]` | Backlog only |
-| `/done ID` | Complete/remove a task |
-| `/clear` | Delete all open active tasks (confirm) |
-| `/search …` | Search |
-| `/help` | Help |
 
 ## Tests
 

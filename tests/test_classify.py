@@ -55,7 +55,7 @@ def test_guess_project_backlog_keyword():
 
 
 def test_format_priority():
-    assert "Important" in format_priority("A")
+    assert "Wichtig" in format_priority("A")
 
 
 def test_parse_tasks_args_priority_and_project():
@@ -79,22 +79,21 @@ def test_grouped_task_list_has_section_headers_once():
         _Item(2, "Also hot", "A", 1),
         _Item(3, "Later", "C", 2),
     ]
-    projects = {
-        1: Project(id=1, user_id=1, key="privat", name="Privat", kind="private"),
-        2: Project(id=2, user_id=1, key="arbeit", name="Arbeit", kind="work"),
-    }
-    text = grouped_task_list("Tasks", items, projects, total=3)
-    assert "<b>Privat</b>" in text
-    assert "<b>Arbeit</b>" in text
-    assert text.find("<b>Privat</b>") < text.find("<b>Arbeit</b>")
+    text = grouped_task_list(items)
+    assert "<b>3 Aufgaben</b>" not in text
+    assert "<b>Privat</b>" not in text
+    assert "<b>Arbeit</b>" not in text
     assert text.count("<b>A ·") == 1
     assert text.count("<b>C ·") == 1
-    assert "Important &amp; Urgent" in text
+    assert "Wichtig &amp; Dringend" in text
     assert "[A]" not in text
-    assert "A – Important" not in text
     assert "#1" in text and "Hot" in text
     assert "· Privat" not in text
     assert "· Arbeit" not in text
-    line = task_line(items[0])
-    assert "[A]" not in line
-    assert "Privat" not in line
+    line = task_line(items[0], subtasks=(2, 3))
+    assert "2/3" in line
+    noted = task_line(
+        _Item(9, "Report", "A", 1, body="Zahlen von Q3\nbitte an Anna")
+    )
+    assert "  – Zahlen von Q3" in noted
+    assert "  – bitte an Anna" in noted

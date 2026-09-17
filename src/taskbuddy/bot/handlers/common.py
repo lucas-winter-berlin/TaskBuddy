@@ -2,41 +2,15 @@
 
 from __future__ import annotations
 
-import html
 import logging
 
 from telegram import Update
 
-from ... import icons as ic
+from .. import copy as txt
 from .. import keyboards as kb
 from ..context import BotContextTypes, app_context, is_authorised, reply, user_id_of
 
 logger = logging.getLogger(__name__)
-
-HELP_TEXT = f"""{ic.html('tip')} <b>TaskBuddy – Commands</b>
-
-Send text → new <b>task</b>
-
-Bottom keyboard – tap Tasks / Backlog / Search
-
-/tasks [A|B|C|D] – active tasks (Privat &amp; Arbeit), grouped by project
-/backlog [A|B|C|D] – backlog only
-/done ID – complete a task (or tap Done after filtering A–D)
-/clear – delete all open active tasks
-/search … – search
-/menu – show keyboard again
-/settings – config
-/help – this help
-
-Projects when creating: Privat · Arbeit · Backlog
-Backlog is effortful work for a calmer phase – not the same as D.
-
-Priorities:
-A Important &amp; Urgent
-B Urgent &amp; Not important
-C Important &amp; Not urgent
-D Not important &amp; Not urgent
-"""
 
 
 async def start(update: Update, context: BotContextTypes) -> None:
@@ -44,35 +18,22 @@ async def start(update: Update, context: BotContextTypes) -> None:
     user = update.effective_user
     uid = user.id if user else "?"
     if not is_authorised(update, settings):
-        await reply(
-            update,
-            f"{ic.html('lock')} This bot is private.\nYour user id: <code>{uid}</code>",
-        )
+        await reply(update, txt.private_with_id(uid))
         return
 
     ctx = app_context(context)
     async with ctx.db.session() as session:
         await ctx.repository(session).ensure_default_projects(user_id_of(update))
 
-    await reply(
-        update,
-        f"{ic.html('ok')} <b>TaskBuddy</b> ready.\n"
-        f"Type a task, or use the buttons below.\n"
-        f"/help for all commands · /menu shows the keyboard again.",
-        reply_markup=kb.main_reply_keyboard(),
-    )
+    await reply(update, txt.START, reply_markup=kb.main_reply_keyboard())
 
 
 async def menu_command(update: Update, context: BotContextTypes) -> None:
-    await reply(
-        update,
-        f"{ic.html('ok')} Keyboard ready – tap a button or type a task.",
-        reply_markup=kb.main_reply_keyboard(),
-    )
+    await reply(update, txt.MENU_READY, reply_markup=kb.main_reply_keyboard())
 
 
 async def help_command(update: Update, context: BotContextTypes) -> None:
-    await reply(update, HELP_TEXT, reply_markup=kb.main_reply_keyboard())
+    await reply(update, txt.HELP, reply_markup=kb.main_reply_keyboard())
 
 
 async def settings_command(update: Update, context: BotContextTypes) -> None:
@@ -80,12 +41,13 @@ async def settings_command(update: Update, context: BotContextTypes) -> None:
     backend = "PostgreSQL" if "postgresql" in s.database_url else "SQLite"
     await reply(
         update,
-        f"{ic.html('gear')} <b>Settings</b>\n"
-        f"Owner: <code>{s.owner_user_id or 'open'}</code>\n"
-        f"DB: {html.escape(backend)}\n"
-        f"Gemini: {'on' if s.gemini_enabled else 'off'}\n"
-        f"Timezone: {html.escape(str(s.timezone))}\n"
-        f"Env: {html.escape(s.environment)}",
+        txt.settings_text(
+            owner=str(s.owner_user_id or "offen"),
+            backend=backend,
+            timezone=str(s.timezone),
+            gemini=s.gemini_enabled,
+            environment=s.environment,
+        ),
         reply_markup=kb.main_reply_keyboard(),
     )
 
@@ -99,7 +61,7 @@ async def task_command(update: Update, context: BotContextTypes) -> None:
         message = update.effective_message
         text = (message.text or "").partition(" ")[2].strip() if message else ""
     if not text:
-        await reply(update, f"{ic.html('tip')} Usage: <code>/task text</code>")
+        await reply(update, txt.TASK_HINT)
         return
     await capture.begin_capture(update, context, text)
 
@@ -107,19 +69,13 @@ async def task_command(update: Update, context: BotContextTypes) -> None:
 async def fallback(update: Update, context: BotContextTypes) -> None:
     if not is_authorised(update, app_context(context).settings):
         return
-    await reply(
-        update,
-        f"{ic.html('tip')} Send text to save a task, or tap /help.",
-        reply_markup=kb.main_reply_keyboard(),
-    )
+    await reply(update, txt.FALLBACK, reply_markup=kb.main_reply_keyboard())
 
 
 async def error_handler(update: object, context: BotContextTypes) -> None:
     logger.exception("Unhandled error: %s", context.error)
     if isinstance(update, Update) and update.effective_message:
         try:
-            await update.effective_message.reply_text(
-                "⚠️ Something went wrong – please try again."
-            )
+            await update.effective_message.reply_text(txt.ERROR, parse_mode="HTML")
         except Exception:
             logger.exception("Failed to send error reply")

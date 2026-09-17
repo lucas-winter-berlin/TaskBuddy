@@ -162,3 +162,77 @@ async def test_rename_and_delete_custom_project(db):
         privat = await repo.find_project_by_key(9, "privat")
         assert privat is not None
         assert await repo.soft_delete_project(9, privat.id) is None
+
+
+@pytest.mark.asyncio
+async def test_update_item_fields(db):
+    async with db.session() as session:
+        repo = TaskRepository(session)
+        projects = await repo.ensure_default_projects(13)
+        item = await repo.create_item(
+            user_id=13,
+            project_id=projects[0].id,
+            item_type="task",
+            title="old",
+            body="note",
+            priority="C",
+        )
+        updated = await repo.update_item(
+            13, item.id, title="new", body="better", priority="A", project_id=projects[1].id
+        )
+        assert updated is not None
+        assert updated.title == "new"
+        assert updated.body == "better"
+        assert updated.priority == "A"
+        assert updated.project_id == projects[1].id
+        cleared = await repo.update_item(13, item.id, body=None)
+        assert cleared is not None
+        assert cleared.body is None
+
+
+@pytest.mark.asyncio
+async def test_subtasks_toggle_and_counts(db):
+    async with db.session() as session:
+        repo = TaskRepository(session)
+        projects = await repo.ensure_default_projects(14)
+        item = await repo.create_item(
+            user_id=14,
+            project_id=projects[0].id,
+            item_type="task",
+            title="Report",
+            priority="B",
+        )
+        created = await repo.add_subtasks(
+            14, item.id, [("Intro", False), ("Charts", True), ("Review", False)]
+        )
+        assert len(created) == 3
+        counts = await repo.subtask_counts(14, [item.id])
+        assert counts[item.id] == (1, 3)
+        toggled = await repo.toggle_subtask(14, created[0].id)
+        assert toggled is not None and toggled.done_at is not None
+        counts = await repo.subtask_counts(14, [item.id])
+        assert counts[item.id] == (2, 3)
+        open_subs = await repo.list_open_subtasks(14)
+        assert {s.title for s in open_subs} == {"Review"}
+
+
+@pytest.mark.asyncio
+async def test_restore_soft_deleted_task(db):
+    async with db.session() as session:
+        repo = TaskRepository(session)
+        projects = await repo.ensure_default_projects(15)
+        item = await repo.create_item(
+            user_id=15,
+            project_id=projects[0].id,
+            item_type="task",
+            title="oops",
+            priority="A",
+        )
+        await repo.soft_delete_item(15, item.id)
+        assert await repo.get_item(15, item.id) is None
+        deleted = await repo.list_deleted_tasks(15, limit=1)
+        assert deleted and deleted[0].id == item.id
+        restored = await repo.restore_item(15, item.id)
+        assert restored is not None
+        assert restored.deleted_at is None
+        assert (await repo.get_item(15, item.id)).title == "oops"

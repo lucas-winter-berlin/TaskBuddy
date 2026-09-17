@@ -4,53 +4,44 @@ from __future__ import annotations
 
 import html
 
-from .. import icons as ic
 from ..db.models import Item, Project
 from .priority import LABELS, PRIORITIES, format_priority
-
-_KIND_ORDER = {"private": 0, "work": 1, "backlog": 2}
 
 
 def esc(value: str | None) -> str:
     return html.escape(value or "")
 
 
-def project_line(project: Project) -> str:
-    return f"{ic.html('section')} <b>{esc(project.name)}</b> <code>{esc(project.key)}</code>"
-
-
-def task_line(item: Item, project: Project | None = None) -> str:
+def task_line(
+    item: Item,
+    project: Project | None = None,
+    *,
+    subtasks: tuple[int, int] | None = None,
+) -> str:
     """Eine Task-Zeile ohne Prioritaets-Wiederholung (fuer gruppierte Listen)."""
     bits = [f"<code>#{item.id}</code>", esc(item.title)]
+    if subtasks and subtasks[1]:
+        bits.append(f"{subtasks[0]}/{subtasks[1]}")
     if project is not None:
         bits.append(f"· {esc(project.name)}")
     line = "  ".join((bits[0], " ".join(bits[1:])))
     if item.body:
-        line += f"\n<i>{esc(item.body[:200])}</i>"
+        note_lines = []
+        for raw_line in item.body.splitlines():
+            cleaned = raw_line.strip()
+            if cleaned:
+                note_lines.append(f"  – {esc(cleaned)}")
+        snippet = "\n".join(note_lines)
+        if len(snippet) > 240:
+            snippet = snippet[:237] + "…"
+        line += f"\n{snippet}"
     return line
 
 
-def item_line(item: Item, project: Project | None = None) -> str:
-    return task_line(item, project)
-
-
-def _ordered_projects(items: list[Item], projects: dict[int, Project]) -> list[Project]:
-    seen_ids = {item.project_id for item in items}
-    ordered = sorted(
-        (p for p in projects.values() if p.id in seen_ids),
-        key=lambda p: (_KIND_ORDER.get(p.kind, 3), p.name.lower()),
-    )
-    leftover_ids = seen_ids - {p.id for p in ordered}
-    for item in items:
-        if item.project_id in leftover_ids:
-            project = projects.get(item.project_id)
-            if project is not None:
-                ordered.append(project)
-                leftover_ids.discard(item.project_id)
-    return ordered
-
-
-def _priority_blocks(items: list[Item]) -> list[str]:
+def _priority_blocks(
+    items: list[Item],
+    counts: dict[int, tuple[int, int]] | None = None,
+) -> list[str]:
     blocks: list[str] = []
     for prio in PRIORITIES:
         group = [item for item in items if item.priority == prio]
@@ -58,41 +49,25 @@ def _priority_blocks(items: list[Item]) -> list[str]:
             continue
         lines = [f"<b>{prio} · {esc(LABELS[prio])}</b>"]
         for item in group:
-            lines.append(task_line(item))
+            lines.append(task_line(item, subtasks=(counts or {}).get(item.id)))
         blocks.append("\n".join(lines))
     rest = [item for item in items if item.priority not in PRIORITIES]
     if rest:
-        lines = ["<b>Other</b>"]
+        lines = ["<b>Weitere</b>"]
         for item in rest:
-            lines.append(task_line(item))
+            lines.append(task_line(item, subtasks=(counts or {}).get(item.id)))
         blocks.append("\n".join(lines))
     return blocks
 
 
 def grouped_task_list(
-    title: str,
     items: list[Item],
-    projects: dict[int, Project],
     *,
-    total: int,
-    group_by_project: bool = True,
+    subtask_counts: dict[int, tuple[int, int]] | None = None,
 ) -> str:
     if not items:
-        return f"{ic.html('section')} <b>{esc(title)}</b>\n<i>Nothing here yet.</i>"
-    header = f"{ic.html('section')} <b>{esc(title)}</b> ({total})"
-    if not group_by_project:
-        blocks = _priority_blocks(items)
-        return header + "\n\n" + "\n\n\n".join(blocks)
-
-    project_blocks: list[str] = []
-    for project in _ordered_projects(items, projects):
-        group = [item for item in items if item.project_id == project.id]
-        inner = _priority_blocks(group)
-        if not inner:
-            continue
-        body = "\n\n".join(inner)
-        project_blocks.append(f"<b>{esc(project.name)}</b>\n\n{body}")
-    return header + "\n\n" + "\n\n\n".join(project_blocks)
+        return "Keine Aufgaben"
+    return "\n\n".join(_priority_blocks(items, subtask_counts))
 
 
 def draft_summary(
@@ -101,19 +76,49 @@ def draft_summary(
     body: str | None,
     project_name: str | None,
     priority: str | None,
+    subtasks: list[tuple[str, bool]] | None = None,
 ) -> str:
     lines = [
-        f"{ic.html('save')} <b>New Task</b>",
+        "<b>Neue Aufgabe</b>",
         esc(title),
     ]
     if body:
         lines.append(f"<i>{esc(body[:300])}</i>")
+    if subtasks:
+        preview = " · ".join(item_title for item_title, _ in subtasks[:5])
+        extra = f"  +{len(subtasks) - 5}" if len(subtasks) > 5 else ""
+        lines.append(esc(preview) + esc(extra))
     if project_name:
-        lines.append(f"Project: <b>{esc(project_name)}</b>")
-    else:
-        lines.append("Project: <i>still to choose</i>")
+        lines.append(esc(project_name))
     if priority:
-        lines.append(f"Priority: <b>{esc(format_priority(priority))}</b>")
-    else:
-        lines.append("Priority: <i>still to choose</i>")
+        lines.append(esc(format_priority(priority)))
+    return "\n".join(lines)
+
+
+def task_card_text(item, project, subtasks: list) -> str:
+    prio = format_priority(item.priority) if item.priority else ""
+    lines = [
+        f"<code>#{item.id}</code>",
+        f"<b>{esc(item.title)}</b>",
+    ]
+    meta = []
+    if project:
+        meta.append(esc(project.name))
+    if prio:
+        meta.append(esc(prio))
+    if meta:
+        lines.append("  ·  ".join(meta))
+    if item.body:
+        lines.append("")
+        lines.append(f"<i>{esc(item.body[:800])}</i>")
+    if subtasks:
+        done = sum(1 for sub in subtasks if sub.done_at)
+        lines.append("")
+        lines.append(f"Checkliste  {done}/{len(subtasks)}")
+        for sub in subtasks:
+            mark = "✓" if sub.done_at else "·"
+            lines.append(f"{mark}  {esc(sub.title)}")
+        if done == len(subtasks):
+            lines.append("")
+            lines.append("<i>Alles abgehakt — Erledigt tippen.</i>")
     return "\n".join(lines)

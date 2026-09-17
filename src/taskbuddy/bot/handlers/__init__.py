@@ -1,5 +1,5 @@
-"""Handler-Paket."""
+"""Handler-Paket. Reihenfolge vermeidet zyklische Imports."""
 
-from . import capture, common, manage, query, router
+from . import common, query, manage, capture, router
 
 __all__ = ["capture", "common", "manage", "query", "router"]

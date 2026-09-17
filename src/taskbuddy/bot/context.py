@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -13,8 +12,6 @@ from telegram.ext import ContextTypes
 from ..config import Settings
 from ..db import Database, TaskRepository
 from ..services.gemini import GeminiClassifier
-
-logger = logging.getLogger(__name__)
 
 BotContextTypes = ContextTypes.DEFAULT_TYPE
 
@@ -64,6 +61,12 @@ async def edit(update: Update, text: str, **kwargs: Any):
     if query is None or query.message is None:
         return await reply(update, text, **kwargs)
     return await query.edit_message_text(text, **kwargs)
+
+
+async def respond(update: Update, text: str, *, via_edit: bool = False, **kwargs: Any):
+    if via_edit:
+        return await edit(update, text, **kwargs)
+    return await reply(update, text, **kwargs)
 
 
 def user_id_of(update: Update) -> int:

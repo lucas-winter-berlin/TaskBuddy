@@ -28,3 +28,16 @@ CREATE TABLE IF NOT EXISTS items (
 
 CREATE INDEX IF NOT EXISTS ix_items_user_type_active ON items (user_id, type, deleted_at);
 CREATE INDEX IF NOT EXISTS ix_items_user_project_active ON items (user_id, project_id, deleted_at);
+
+CREATE TABLE IF NOT EXISTS subtasks (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    item_id BIGINT NOT NULL REFERENCES items(id),
+    title TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    done_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS ix_subtasks_item_active ON subtasks (item_id, deleted_at);

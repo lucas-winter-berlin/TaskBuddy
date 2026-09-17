@@ -8,10 +8,10 @@ from dataclasses import dataclass
 PRIORITIES = ("A", "B", "C", "D")
 
 LABELS = {
-    "A": "Important & Urgent",
-    "B": "Urgent & Not important",
-    "C": "Important & Not urgent",
-    "D": "Not important & Not urgent",
+    "A": "Wichtig & Dringend",
+    "B": "Dringend & Nicht wichtig",
+    "C": "Wichtig & Nicht dringend",
+    "D": "Nicht wichtig & Nicht dringend",
 }
 
 _URGENT = re.compile(
@@ -44,7 +44,7 @@ def label(priority: str | None) -> str:
 def format_priority(priority: str | None) -> str:
     if not priority:
         return ""
-    return f"{priority} – {label(priority)}"
+    return f"{priority} · {label(priority)}"
 
 
 def guess_priority(text: str) -> PriorityGuess:

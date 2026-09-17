@@ -1,7 +1,7 @@
 """Persistenz-Schicht."""
 
 from .engine import Database
-from .models import Base, Item, Project, ensure_utc, utcnow
+from .models import Base, Item, Project, Subtask, ensure_utc, utcnow
 from .repository import BUILTIN_KINDS, PRIORITY_ORDER, Page, TaskRepository, slugify
 
 __all__ = [
@@ -12,6 +12,7 @@ __all__ = [
     "Page",
     "PRIORITY_ORDER",
     "Project",
+    "Subtask",
     "TaskRepository",
     "ensure_utc",
     "slugify",
