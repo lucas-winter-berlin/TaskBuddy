@@ -102,10 +102,11 @@ async def remove_item(
         )
         return
 
+    shown = item.number
     text = (
-        txt.completed(item_id, item.title)
+        txt.completed(shown, item.title)
         if as_done
-        else txt.deleted(item_id, item.title)
+        else txt.deleted(shown, item.title)
     )
     await respond(update, text, via_edit=via_edit)
 
@@ -118,8 +119,14 @@ async def handle_done_query(
         return
     uid = user_id_of(update)
     ctx = app_context(context)
-    item_id = parse_item_id(query)
-    if item_id is not None:
+    number = parse_item_id(query)
+    if number is not None:
+        async with ctx.db.session() as session:
+            item = await ctx.repository(session).get_item_by_number(uid, number)
+            item_id = item.id if item else None
+        if item_id is None:
+            await respond(update, txt.not_found(number))
+            return
         await remove_item(update, context, item_id, as_done=True)
         return
 

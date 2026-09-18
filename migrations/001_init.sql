@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS items (
     type VARCHAR(16) NOT NULL,
     title TEXT NOT NULL,
     body TEXT,
+    number INTEGER NOT NULL,
     priority VARCHAR(1),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -28,6 +29,8 @@ CREATE TABLE IF NOT EXISTS items (
 
 CREATE INDEX IF NOT EXISTS ix_items_user_type_active ON items (user_id, type, deleted_at);
 CREATE INDEX IF NOT EXISTS ix_items_user_project_active ON items (user_id, project_id, deleted_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_items_user_number_active
+    ON items (user_id, number) WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS subtasks (
     id BIGSERIAL PRIMARY KEY,

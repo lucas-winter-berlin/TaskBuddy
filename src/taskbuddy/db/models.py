@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -87,6 +88,8 @@ class Item(Base):
     type: Mapped[str] = mapped_column(String(16), nullable=False)  # task | note
     title: Mapped[str] = mapped_column(Text, nullable=False)
     body: Mapped[str | None] = mapped_column(Text)
+    # Sichtbare Task-Nummer je User; Lücken offener Tasks werden wiederverwendet.
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
     # Nur Tasks: A|B|C|D. Notizen: null.
     priority: Mapped[str | None] = mapped_column(String(1))
     created_at: Mapped[datetime] = mapped_column(
@@ -104,11 +107,20 @@ class Item(Base):
     __table_args__ = (
         Index("ix_items_user_type_active", "user_id", "type", "deleted_at"),
         Index("ix_items_user_project_active", "user_id", "project_id", "deleted_at"),
+        Index(
+            "uq_items_user_number_active",
+            "user_id",
+            "number",
+            unique=True,
+            sqlite_where=text("deleted_at IS NULL"),
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
     )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
+            "number": self.number,
             "project_id": self.project_id,
             "type": self.type,
             "title": self.title,

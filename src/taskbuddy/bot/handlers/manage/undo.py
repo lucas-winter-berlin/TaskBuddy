@@ -31,15 +31,18 @@ async def restore_item(
         existing = await repo.get_item(uid, item_id)
         if existing is not None:
             await respond(
-                update, txt.already_open(item_id, existing.title), via_edit=via_edit
+                update,
+                txt.already_open(existing.number, existing.title),
+                via_edit=via_edit,
             )
             return False
         item = await repo.restore_item(uid, item_id)
         title = item.title if item else None
+        shown = item.number if item else item_id
     if item is None:
         await respond(update, txt.nothing_to_restore(item_id), via_edit=via_edit)
         return False
-    await respond(update, txt.restored(item_id, title or ""), via_edit=via_edit)
+    await respond(update, txt.restored(shown, title or ""), via_edit=via_edit)
     await show_task_card(update, context, item_id, via_edit=False)
     return True
 
@@ -50,8 +53,24 @@ async def handle_undo_query(
     uid = user_id_of(update)
     ctx = app_context(context)
     raw = (query or "").strip()
-    item_id = parse_item_id(raw) if raw else None
-    if item_id is not None:
+    number = parse_item_id(raw) if raw else None
+    if number is not None:
+        async with ctx.db.session() as session:
+            repo = ctx.repository(session)
+            deleted = await repo.get_deleted_item_by_number(uid, number)
+            if deleted is not None:
+                item_id = deleted.id
+            else:
+                open_item = await repo.get_item_by_number(uid, number)
+                if open_item is not None:
+                    await respond(
+                        update,
+                        txt.already_open(open_item.number, open_item.title),
+                        via_edit=False,
+                    )
+                    return
+                await respond(update, txt.nothing_to_restore(number), via_edit=False)
+                return
         await restore_item(update, context, item_id, via_edit=False)
         return
 
@@ -74,7 +93,7 @@ async def _list_done_tasks(update: Update, items: list) -> None:
         return
     lines = [txt.DONE_LIST_HEADER, ""]
     for item in items[:20]:
-        lines.append(f"<code>#{item.id}</code>  {esc(item.title)}")
+        lines.append(f"<code>#{item.number}</code>  {esc(item.title)}")
     await respond(
         update,
         "\n".join(lines),

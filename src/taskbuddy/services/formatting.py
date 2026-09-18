@@ -19,7 +19,7 @@ def task_line(
     subtasks: tuple[int, int] | None = None,
 ) -> str:
     """Eine Task-Zeile ohne Prioritaets-Wiederholung (fuer gruppierte Listen)."""
-    bits = [f"<code>#{item.id}</code>", esc(item.title)]
+    bits = [f"<code>#{item.number}</code>", esc(item.title)]
     if subtasks and subtasks[1]:
         bits.append(f"{subtasks[0]}/{subtasks[1]}")
     if project is not None:
@@ -98,7 +98,7 @@ def draft_summary(
 def task_card_text(item, project, subtasks: list) -> str:
     prio = format_priority(item.priority) if item.priority else ""
     lines = [
-        f"<code>#{item.id}</code>",
+        f"<code>#{item.number}</code>",
         f"<b>{esc(item.title)}</b>",
     ]
     meta = []

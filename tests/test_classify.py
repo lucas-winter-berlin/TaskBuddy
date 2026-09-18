@@ -69,6 +69,7 @@ def test_grouped_task_list_has_section_headers_once():
     class _Item:
         def __init__(self, item_id, title, priority, project_id, body=None):
             self.id = item_id
+            self.number = item_id
             self.title = title
             self.priority = priority
             self.project_id = project_id

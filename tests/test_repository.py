@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from taskbuddy.db import TaskRepository
+from taskbuddy.db import Database, TaskRepository
 
 
 @pytest.mark.asyncio
@@ -235,4 +235,121 @@ async def test_restore_soft_deleted_task(db):
         restored = await repo.restore_item(15, item.id)
         assert restored is not None
         assert restored.deleted_at is None
+        assert restored.number == item.number
         assert (await repo.get_item(15, item.id)).title == "oops"
+
+
+@pytest.mark.asyncio
+async def test_task_numbers_reuse_lowest_gap(db):
+    async with db.session() as session:
+        repo = TaskRepository(session)
+        projects = await repo.ensure_default_projects(20)
+        privat = projects[0]
+        first = await repo.create_item(
+            user_id=20, project_id=privat.id, item_type="task", title="one", priority="A"
+        )
+        second = await repo.create_item(
+            user_id=20, project_id=privat.id, item_type="task", title="two", priority="B"
+        )
+        third = await repo.create_item(
+            user_id=20, project_id=privat.id, item_type="task", title="three", priority="C"
+        )
+        assert [first.number, second.number, third.number] == [1, 2, 3]
+
+        await repo.soft_delete_item(20, first.id)
+        reused = await repo.create_item(
+            user_id=20, project_id=privat.id, item_type="task", title="new", priority="A"
+        )
+        assert reused.number == 1
+        assert reused.id != first.id
+        found = await repo.get_item_by_number(20, 1)
+        assert found is not None and found.id == reused.id
+
+        restored = await repo.restore_item(20, first.id)
+        assert restored is not None
+        assert restored.number == 4
+
+        other = await repo.ensure_default_projects(21)
+        isolated = await repo.create_item(
+            user_id=21,
+            project_id=other[0].id,
+            item_type="task",
+            title="solo",
+            priority="A",
+        )
+        assert isolated.number == 1
+
+
+@pytest.mark.asyncio
+async def test_legacy_items_keep_id_as_number_and_reuse_gaps(tmp_path):
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    url = f"sqlite+aiosqlite:///{(tmp_path / 'legacy.db').as_posix()}"
+    engine = create_async_engine(url)
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                """
+                CREATE TABLE projects (
+                    id INTEGER PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    key VARCHAR(64) NOT NULL,
+                    name VARCHAR(120) NOT NULL,
+                    kind VARCHAR(16) NOT NULL DEFAULT 'custom',
+                    created_at DATETIME,
+                    deleted_at DATETIME
+                )
+                """
+            )
+        )
+        await conn.execute(
+            text(
+                """
+                CREATE TABLE items (
+                    id INTEGER PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    project_id INTEGER NOT NULL,
+                    type VARCHAR(16) NOT NULL,
+                    title TEXT NOT NULL,
+                    body TEXT,
+                    priority VARCHAR(1),
+                    created_at DATETIME,
+                    updated_at DATETIME,
+                    deleted_at DATETIME
+                )
+                """
+            )
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO projects (id, user_id, key, name, kind) "
+                "VALUES (1, 1, 'privat', 'Privat', 'private')"
+            )
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO items (id, user_id, project_id, type, title, priority) "
+                "VALUES (7, 1, 1, 'task', 'old', 'A')"
+            )
+        )
+    await engine.dispose()
+
+    database = Database(url)
+    await database.create_schema()
+    try:
+        async with database.session() as session:
+            repo = TaskRepository(session)
+            old = await repo.get_item(1, 7)
+            assert old is not None
+            assert old.number == 7
+            created = await repo.create_item(
+                user_id=1,
+                project_id=1,
+                item_type="task",
+                title="fresh",
+                priority="B",
+            )
+            assert created.number == 1
+    finally:
+        await database.dispose()

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -13,6 +14,23 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from .models import Base
+
+
+def _ensure_item_numbers(connection) -> None:
+    """Ergaenzt sichtbare Task-Nummern auf bestehenden Datenbanken."""
+    inspector = inspect(connection)
+    if "items" not in inspector.get_table_names():
+        return
+    columns = {col["name"] for col in inspector.get_columns("items")}
+    if "number" not in columns:
+        connection.execute(text("ALTER TABLE items ADD COLUMN number INTEGER"))
+    connection.execute(text("UPDATE items SET number = id WHERE number IS NULL"))
+    connection.execute(
+        text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_items_user_number_active "
+            "ON items (user_id, number) WHERE deleted_at IS NULL"
+        )
+    )
 
 
 class Database:
@@ -33,6 +51,7 @@ class Database:
         """Legt fehlende Tabellen an. Ersetzt fuer den MVP ein Migrationstool."""
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(_ensure_item_numbers)
 
     @asynccontextmanager
     async def session(self) -> AsyncIterator[AsyncSession]:

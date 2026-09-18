@@ -156,6 +156,24 @@ class TaskRepository:
         await self.session.flush()
         return len(page.items)
 
+    def _lowest_free_number(self, used: set[int]) -> int:
+        number = 1
+        while number in used:
+            number += 1
+        return number
+
+    async def _open_numbers(self, user_id: int) -> set[int]:
+        stmt = select(Item.number).where(
+            Item.user_id == user_id,
+            Item.deleted_at.is_(None),
+            Item.number.isnot(None),
+        )
+        result = await self.session.execute(stmt)
+        return {int(value) for value in result.scalars().all()}
+
+    async def _next_open_number(self, user_id: int) -> int:
+        return self._lowest_free_number(await self._open_numbers(user_id))
+
     async def create_item(
         self,
         *,
@@ -177,6 +195,7 @@ class TaskRepository:
             type=item_type,
             title=title.strip(),
             body=(body.strip() if body else None) or None,
+            number=await self._next_open_number(user_id),
             priority=priority,
         )
         self.session.add(item)
@@ -230,10 +249,38 @@ class TaskRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_item_by_number(
+        self, user_id: int, number: int, *, include_deleted: bool = False
+    ) -> Item | None:
+        filters = [Item.user_id == user_id, Item.number == number]
+        if not include_deleted:
+            filters.append(Item.deleted_at.is_(None))
+        stmt = select(Item).where(*filters)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_deleted_item_by_number(self, user_id: int, number: int) -> Item | None:
+        stmt = (
+            select(Item)
+            .where(
+                Item.user_id == user_id,
+                Item.number == number,
+                Item.type == "task",
+                Item.deleted_at.isnot(None),
+            )
+            .order_by(Item.deleted_at.desc(), Item.id.desc())
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def restore_item(self, user_id: int, item_id: int) -> Item | None:
         item = await self.get_item(user_id, item_id, include_deleted=True)
         if item is None or item.deleted_at is None:
             return None
+        used = await self._open_numbers(user_id)
+        if item.number in used:
+            item.number = self._lowest_free_number(used)
         item.deleted_at = None
         item.updated_at = utcnow()
         await self.session.flush()

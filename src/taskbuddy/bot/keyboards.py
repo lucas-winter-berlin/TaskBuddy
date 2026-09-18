@@ -137,7 +137,7 @@ def task_list_keyboard(
 
     if priority is not None:
         done_buttons = [
-            _btn(f"#{item.id}", icon="ok", callback_data=f"{ITEM}:done:{item.id}:{token}")
+            _btn(f"#{item.number}", icon="ok", callback_data=f"{ITEM}:done:{item.id}:{token}")
             for item in items
         ]
         rows.extend(_chunk(done_buttons, 3))
@@ -176,7 +176,7 @@ def match_picker(kind: str, items: list) -> InlineKeyboardMarkup:
         rows.append(
             [
                 InlineKeyboardButton(
-                    f"#{item.id} {_short_label(item.title)}",
+                    f"#{item.number} {_short_label(item.title)}",
                     callback_data=data,
                 )
             ]
@@ -187,7 +187,7 @@ def match_picker(kind: str, items: list) -> InlineKeyboardMarkup:
 
 def restore_list_keyboard(items: list) -> InlineKeyboardMarkup:
     buttons = [
-        _btn(f"#{item.id}", icon="refresh", callback_data=f"{ITEM}:undo:{item.id}")
+        _btn(f"#{item.number}", icon="refresh", callback_data=f"{ITEM}:undo:{item.id}")
         for item in items[:12]
     ]
     return InlineKeyboardMarkup(_chunk(buttons, 3))
