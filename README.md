@@ -13,6 +13,7 @@ Type a task. Extra lines are notes; lines starting with `-` become subtasks.
 |----------|----------------|
 | `Buy milk` | New task (confirm project/priority) |
 | `#12` | Open that task with notes and subtasks |
+| **Teilen** on the card | Pick a Telegram chat and send a snapshot |
 | `edit Steuer` / `bearbeiten 12` | Same card, then change title/notes/prio/project |
 | `done Steuer` / `erledigt …` / `fertig #12` | Complete the task |
 | `undo` or `/undo` | List completed tasks |
@@ -39,7 +40,8 @@ copy .env.example .env
 ```
 
 3. Set in `.env`: `TELEGRAM_BOT_TOKEN`, `OWNER_USER_ID` (your Telegram id).
-4. Run:
+4. In [@BotFather](https://t.me/BotFather) enable **Inline mode** (`/setinline`) so **Teilen** can pick another chat.
+5. Run:
 
 ```powershell
 python main.py

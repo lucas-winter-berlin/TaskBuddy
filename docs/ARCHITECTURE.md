@@ -18,6 +18,7 @@ Single-user Telegram bot for tasks.
 - Backlog lists parked tasks separately
 - Done tasks are soft-deleted (`deleted_at`) and listed/restored with `/undo` or `undo 12`
 - Unique subtask names can be checked off with `done …`
+- **Share** — task card button **Teilen** opens Telegram’s chat picker (inline mode) and sends a snapshot; **In TaskBuddy übernehmen** copies it into the recipient’s Privat list if they can use the bot
 - **Backlog** is a project for effortful work in a calmer phase — not priority D
 
 ## Flow

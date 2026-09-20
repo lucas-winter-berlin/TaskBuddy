@@ -207,7 +207,12 @@ def subtask_match_picker(subtasks: list) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
-def edit_task_keyboard(item_id: int, subtasks: list) -> InlineKeyboardMarkup:
+def edit_task_keyboard(
+    item_id: int,
+    subtasks: list,
+    *,
+    number: int | None = None,
+) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
         [
             _btn(txt.BTN_TITLE, icon="edit", callback_data=f"{EDT}:title:{item_id}"),
@@ -231,14 +236,27 @@ def edit_task_keyboard(item_id: int, subtasks: list) -> InlineKeyboardMarkup:
     rows.append(
         [_btn(txt.BTN_SUBTASK, icon="save", callback_data=f"{EDT}:add:{item_id}")]
     )
+    share_query = f"#{number}" if number is not None else ""
     rows.append(
         [
             _btn(txt.BTN_DONE, icon="ok", callback_data=f"{ITEM}:done:{item_id}"),
-            _btn(txt.BTN_DELETE, icon="trash", callback_data=f"{ITEM}:del:{item_id}"),
+            _btn(txt.BTN_SHARE, icon="link", switch_inline_query=share_query),
         ]
     )
-    rows.append([_btn(txt.BTN_CLOSE, icon="no", callback_data=f"{EDT}:close:{item_id}")])
+    rows.append(
+        [
+            _btn(txt.BTN_DELETE, icon="trash", callback_data=f"{ITEM}:del:{item_id}"),
+            _btn(txt.BTN_CLOSE, icon="no", callback_data=f"{EDT}:close:{item_id}"),
+        ]
+    )
     return InlineKeyboardMarkup(rows)
+
+
+def claim_keyboard(bot_username: str, payload: str) -> InlineKeyboardMarkup:
+    url = f"https://t.me/{bot_username}?start={payload}"
+    return InlineKeyboardMarkup(
+        [[_btn(txt.BTN_CLAIM, icon="save", url=url)]]
+    )
 
 
 def edit_priority_picker(item_id: int) -> InlineKeyboardMarkup:

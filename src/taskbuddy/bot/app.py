@@ -11,6 +11,7 @@ from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
     Defaults,
+    InlineQueryHandler,
     MessageHandler,
     filters,
 )
@@ -20,7 +21,7 @@ from ..db import Database
 from ..services.gemini import GeminiClassifier
 from . import keyboards
 from .context import AppContext, BotContextTypes, app_context, is_authorised
-from .handlers import common, manage, query, router
+from .handlers import common, manage, query, router, share
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ def build_application(settings: Settings, database: Database) -> Application:
 
     _register_commands(application, allowed)
     _register_callbacks(application)
+    application.add_handler(InlineQueryHandler(share.inline_query))
 
     application.add_handler(
         MessageHandler(
@@ -88,8 +90,10 @@ def _guarded(callback):
 
 
 def _register_commands(application: Application, allowed) -> None:
+    # /start ohne Owner-Filter, damit Claim-Links ankommen;
+    # Unberechtigte sieht start() selbst ab.
+    application.add_handler(CommandHandler("start", common.start))
     handlers = [
-        ("start", common.start),
         ("help", common.help_command),
         ("menu", common.menu_command),
         ("settings", common.settings_command),

@@ -48,6 +48,8 @@ BTN_NOTES = "Notizen"
 BTN_PRIORITY = "Priorität"
 BTN_PROJECT = "Projekt"
 BTN_SUBTASK = "Checkliste"
+BTN_SHARE = "Teilen"
+BTN_CLAIM = "In TaskBuddy übernehmen"
 
 # --- Statische Meldungen ---
 HELP = """<b>TaskBuddy</b>
@@ -59,6 +61,7 @@ Weitere Zeilen werden Notizen. Zeilen mit <code>-</code> werden zur Checkliste.
 <code>done milch</code> · <code>erledigt milch</code> · <code>fertig #12</code>
 <code>/undo</code> zeigt Erledigtes, <code>undo 12</code> stellt sie wieder her.
 <code>edit milch</code> · <code>bearbeiten 12</code>
+Teilen auf der Karte schickt eine Aufgabe in einen anderen Chat.
 
 Unten: Aufgaben · Backlog · Suchen
 A–D filtert die Liste.
@@ -114,6 +117,8 @@ ERROR = _warn("Etwas ist schiefgegangen")
 PRIVATE_LOCK = f"{ic.html('lock')} Dieser Bot ist privat."
 TOAST_NOT_A_TASK = "Nur Aufgaben"
 DONE_LIST_HEADER = "<b>Erledigt</b>"
+CLAIM_BAD = _warn("Link ungültig")
+CLAIM_GONE = _warn("Aufgabe gibt es nicht mehr")
 
 
 def private_with_id(uid) -> str:
@@ -184,6 +189,10 @@ def deleted_count(count: int) -> str:
     if count == 1:
         return _ok("1 Aufgabe gelöscht")
     return _ok(f"{count} Aufgaben gelöscht")
+
+
+def claimed(item_id: int, title: str) -> str:
+    return _ok(f"Übernommen als <code>#{item_id}</code>  {_esc(title)}")
 
 
 def confirm_clear(count: int) -> str:

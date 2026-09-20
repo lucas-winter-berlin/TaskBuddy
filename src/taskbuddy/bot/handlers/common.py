@@ -25,6 +25,13 @@ async def start(update: Update, context: BotContextTypes) -> None:
     async with ctx.db.session() as session:
         await ctx.repository(session).ensure_default_projects(user_id_of(update))
 
+    payload = (context.args or [None])[0] or ""
+    if payload.startswith("claim_"):
+        from . import share
+
+        await share.handle_claim(update, context, payload)
+        return
+
     await reply(update, txt.START, reply_markup=kb.main_reply_keyboard())
 
 

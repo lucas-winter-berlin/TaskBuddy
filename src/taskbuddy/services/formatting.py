@@ -122,3 +122,37 @@ def task_card_text(item, project, subtasks: list) -> str:
             lines.append("")
             lines.append("<i>Alles abgehakt — Erledigt tippen.</i>")
     return "\n".join(lines)
+
+
+def share_card_text(item, project, subtasks: list, *, from_name: str | None = None) -> str:
+    """Snapshot einer Aufgabe fuer einen fremden Chat — ohne Live-Buttons."""
+    who = esc(from_name) if from_name else ""
+    header = f"<b>Aufgabe von {who}</b>" if who else "<b>Aufgabe</b>"
+    lines = [
+        header,
+        "",
+        f"<code>#{item.number}</code>  <b>{esc(item.title)}</b>",
+    ]
+    meta = []
+    if project is not None:
+        meta.append(esc(project.name))
+    if item.priority:
+        meta.append(esc(format_priority(item.priority)))
+    if meta:
+        lines.append("  ·  ".join(meta))
+    if item.body:
+        lines.append("")
+        snippet = item.body[:800]
+        for raw_line in snippet.splitlines():
+            cleaned = raw_line.strip()
+            if cleaned:
+                lines.append(f"– {esc(cleaned)}")
+        if len(item.body) > 800:
+            lines.append("…")
+    if subtasks:
+        lines.append("")
+        lines.append("Checkliste")
+        for sub in subtasks:
+            mark = "✓" if sub.done_at else "·"
+            lines.append(f"{mark}  {esc(sub.title)}")
+    return "\n".join(lines)

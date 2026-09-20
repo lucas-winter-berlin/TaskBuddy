@@ -31,5 +31,7 @@ async def show_task_card(
         update,
         task_card_text(item, project, subtasks),
         via_edit=via_edit,
-        reply_markup=keyboards.edit_task_keyboard(item.id, subtasks),
+        reply_markup=keyboards.edit_task_keyboard(
+            item.id, subtasks, number=item.number
+        ),
     )

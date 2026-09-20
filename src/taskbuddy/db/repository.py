@@ -438,6 +438,57 @@ class TaskRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def find_share_tasks(
+        self, user_id: int, query: str, *, limit: int = 20
+    ) -> list[Item]:
+        """Offene Tasks für Inline-Teilen: Nummer, Suche oder die letzten Einträge."""
+        q = (query or "").strip()
+        if q.startswith("#"):
+            q = q[1:].strip()
+        if q.isdigit():
+            item = await self.get_item_by_number(user_id, int(q))
+            if item is not None and item.type == "task":
+                return [item]
+            return []
+        if not q:
+            page = await self.list_items(user_id, item_type="task", limit=limit)
+            return page.items
+        return await self.search_items(user_id, q, item_type="task", limit=limit)
+
+    async def get_item_by_id(
+        self, item_id: int, *, include_deleted: bool = False
+    ) -> Item | None:
+        filters = [Item.id == item_id]
+        if not include_deleted:
+            filters.append(Item.deleted_at.is_(None))
+        stmt = select(Item).where(*filters)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def copy_task_to_user(self, item: Item, to_user_id: int) -> Item:
+        """Kopiert Task und Checkliste in die Privat-Liste des Ziel-Users."""
+        await self.ensure_default_projects(to_user_id)
+        privat = await self.find_project_by_key(to_user_id, "privat")
+        if privat is None:
+            raise RuntimeError("Privat-Projekt fehlt")
+        priority = item.priority if item.priority in PRIORITY_ORDER else "C"
+        copied = await self.create_item(
+            user_id=to_user_id,
+            project_id=privat.id,
+            item_type="task",
+            title=item.title,
+            body=item.body,
+            priority=priority,
+        )
+        subtasks = await self.list_subtasks(item.user_id, item.id)
+        if subtasks:
+            await self.add_subtasks(
+                to_user_id,
+                copied.id,
+                [(row.title, row.done_at is not None) for row in subtasks],
+            )
+        return copied
+
     async def list_subtasks(self, user_id: int, item_id: int) -> list[Subtask]:
         stmt = (
             select(Subtask)
