@@ -37,15 +37,14 @@ def claim_url(bot_username: str, payload: str) -> str:
     return f"https://t.me/{bot_username.lstrip('@')}?start={payload}"
 
 
-def telegram_share_url(*, url: str, text: str) -> str:
-    """Oeffnet Telegrams eigenen Chat-Picker mit fertigem Aufgabentext."""
+def telegram_share_url(*, text: str, url: str | None = None) -> str:
+    """Oeffnet Telegrams eigenen Chat-Picker. Ohne url nur den Aufgabentext."""
     clipped = (text or "").strip()[:_SHARE_TEXT_LIMIT]
     while True:
-        result = (
-            "https://t.me/share/url"
-            f"?url={quote(url, safe='')}"
-            f"&text={quote(clipped, safe='')}"
-        )
+        parts = ["https://t.me/share/url", f"text={quote(clipped, safe='')}"]
+        if url:
+            parts.insert(1, f"url={quote(url, safe='')}")
+        result = parts[0] + "?" + "&".join(parts[1:])
         if len(result) <= _SHARE_URL_LIMIT or len(clipped) < 20:
             return result
         clipped = clipped[: max(0, len(clipped) - 80)].rstrip() + "…"

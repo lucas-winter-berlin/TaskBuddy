@@ -34,35 +34,29 @@ def test_claim_payload_roundtrip_and_tamper():
 def test_share_card_text_snapshot():
     item = SimpleNamespace(
         number=12,
-        title="Steuererklärung",
-        body="Unterlagen im Ordner\nZweite Zeile",
+        title="Party vorbereiten",
+        body="Unterlagen im Ordner",
         priority="A",
     )
-    project = SimpleNamespace(name="Arbeit")
     subtasks = [
-        SimpleNamespace(title="Sammeln", done_at=datetime.now(timezone.utc)),
-        SimpleNamespace(title="Abschicken", done_at=None),
+        SimpleNamespace(title="Alkohol abholen", done_at=datetime.now(timezone.utc)),
+        SimpleNamespace(title="Pizza vorbestellen", done_at=None),
     ]
-    text = share_card_text(item, project, subtasks, from_name="Baxx")
-    assert "Aufgabe von Baxx" in text
-    assert "#12" in text
-    assert "Steuererklärung" in text
-    assert "Arbeit" in text
-    assert "– Unterlagen im Ordner" in text
-    assert "✓  Sammeln" in text
-    assert "·  Abschicken" in text
-    assert "In TaskBuddy" not in text
-    linked = share_card_text(
-        item,
-        project,
-        subtasks,
-        from_name="Baxx",
-        claim_url="https://t.me/bot?start=claim_1",
-    )
-    assert "In TaskBuddy übernehmen" in linked
-    plain = share_card_plain(item, project, subtasks, from_name="Baxx")
-    assert "Aufgabe von Baxx" in plain
+    text = share_card_text(item, subtasks)
+    assert text.startswith("<b>Party vorbereiten</b>")
+    assert "#12" not in text
+    assert "Aufgabe von" not in text
+    assert "Arbeit" not in text
+    assert "Privat" not in text
+    assert "Unterlagen" not in text
+    assert "t.me" not in text
+    assert "✓  Alkohol abholen" in text
+    assert "·  Pizza vorbestellen" in text
+    plain = share_card_plain(item, subtasks)
+    assert plain.startswith("Party vorbereiten")
     assert "<" not in plain
+    assert "#12" not in plain
+    assert "Aufgabe von" not in plain
 
 
 def test_share_and_claim_keyboards():
@@ -87,15 +81,17 @@ def test_share_and_claim_keyboards():
 
 
 def test_telegram_share_url_encodes_text():
-    url = telegram_share_url(
-        url="https://t.me/bot?start=claim_1",
-        text="Aufgabe von Baxx\n#3  Milch",
-    )
+    url = telegram_share_url(text="Party vorbereiten\n·  Pizza vorbestellen")
     assert url.startswith("https://t.me/share/url?")
-    assert "url=" in url
     assert "text=" in url
+    assert "url=" not in url
     assert " " not in url
     assert len(url) <= 2048
+    with_link = telegram_share_url(
+        url="https://t.me/bot?start=claim_1",
+        text="Party vorbereiten",
+    )
+    assert "url=" in with_link
     assert claim_url("BaxxTaskBuddyBot", "claim_1_abc") == (
         "https://t.me/BaxxTaskBuddyBot?start=claim_1_abc"
     )
