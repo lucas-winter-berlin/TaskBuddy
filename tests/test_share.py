@@ -10,8 +10,13 @@ import pytest
 from taskbuddy.bot import copy as txt
 from taskbuddy.bot import keyboards
 from taskbuddy.db import TaskRepository
-from taskbuddy.services.formatting import share_card_text
-from taskbuddy.services.share import claim_payload, parse_claim_payload
+from taskbuddy.services.formatting import share_card_plain, share_card_text
+from taskbuddy.services.share import (
+    claim_payload,
+    claim_url,
+    parse_claim_payload,
+    telegram_share_url,
+)
 
 SECRET = "test-bot-token"
 
@@ -47,23 +52,53 @@ def test_share_card_text_snapshot():
     assert "✓  Sammeln" in text
     assert "·  Abschicken" in text
     assert "In TaskBuddy" not in text
+    linked = share_card_text(
+        item,
+        project,
+        subtasks,
+        from_name="Baxx",
+        claim_url="https://t.me/bot?start=claim_1",
+    )
+    assert "In TaskBuddy übernehmen" in linked
+    plain = share_card_plain(item, project, subtasks, from_name="Baxx")
+    assert "Aufgabe von Baxx" in plain
+    assert "<" not in plain
 
 
 def test_share_and_claim_keyboards():
     markup = keyboards.edit_task_keyboard(7, [], number=12)
-    queries = [
-        button.switch_inline_query
+    data = [
+        button.callback_data
         for row in markup.inline_keyboard
         for button in row
-        if button.switch_inline_query is not None
+        if button.callback_data
     ]
-    assert "#12" in queries
+    assert "shr:go:7" in data
 
     claim = keyboards.claim_keyboard("taskbuddy_bot", "claim_7_abcabcabca")
     urls = [button.url for row in claim.inline_keyboard for button in row]
     assert urls == ["https://t.me/taskbuddy_bot?start=claim_7_abcabcabca"]
     labels = [button.text for row in claim.inline_keyboard for button in row]
     assert any(txt.BTN_CLAIM in (label or "") for label in labels)
+
+    share = keyboards.share_send_keyboard("https://t.me/share/url?url=x&text=y")
+    share_urls = [button.url for row in share.inline_keyboard for button in row]
+    assert share_urls == ["https://t.me/share/url?url=x&text=y"]
+
+
+def test_telegram_share_url_encodes_text():
+    url = telegram_share_url(
+        url="https://t.me/bot?start=claim_1",
+        text="Aufgabe von Baxx\n#3  Milch",
+    )
+    assert url.startswith("https://t.me/share/url?")
+    assert "url=" in url
+    assert "text=" in url
+    assert " " not in url
+    assert len(url) <= 2048
+    assert claim_url("BaxxTaskBuddyBot", "claim_1_abc") == (
+        "https://t.me/BaxxTaskBuddyBot?start=claim_1_abc"
+    )
 
 
 @pytest.mark.asyncio
@@ -89,6 +124,8 @@ async def test_find_share_tasks_number_search_and_empty(db):
         )
         by_number = await repo.find_share_tasks(30, f"#{first.number}")
         assert [item.id for item in by_number] == [first.id]
+        by_id = await repo.find_share_tasks(30, f"i:{first.id}")
+        assert [item.id for item in by_id] == [first.id]
         by_text = await repo.find_share_tasks(30, "steuer")
         assert [item.title for item in by_text] == ["Steuer"]
         listed = await repo.find_share_tasks(30, "")

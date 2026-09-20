@@ -16,6 +16,7 @@ ITEM = "item"
 PAGE = "pg"
 CLR = "clr"
 EDT = "edt"
+SHR = "shr"
 NOOP = "noop"
 
 BTN_TASKS = txt.KEYBOARD_TASKS
@@ -236,11 +237,10 @@ def edit_task_keyboard(
     rows.append(
         [_btn(txt.BTN_SUBTASK, icon="save", callback_data=f"{EDT}:add:{item_id}")]
     )
-    share_query = f"#{number}" if number is not None else ""
     rows.append(
         [
             _btn(txt.BTN_DONE, icon="ok", callback_data=f"{ITEM}:done:{item_id}"),
-            _btn(txt.BTN_SHARE, icon="link", switch_inline_query=share_query),
+            _btn(txt.BTN_SHARE, icon="link", callback_data=f"{SHR}:go:{item_id}"),
         ]
     )
     rows.append(
@@ -256,6 +256,12 @@ def claim_keyboard(bot_username: str, payload: str) -> InlineKeyboardMarkup:
     url = f"https://t.me/{bot_username}?start={payload}"
     return InlineKeyboardMarkup(
         [[_btn(txt.BTN_CLAIM, icon="save", url=url)]]
+    )
+
+
+def share_send_keyboard(share_url: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [[_btn(txt.BTN_PICK_CHAT, icon="link", url=share_url)]]
     )
 
 

@@ -40,8 +40,7 @@ copy .env.example .env
 ```
 
 3. Set in `.env`: `TELEGRAM_BOT_TOKEN`, `OWNER_USER_ID` (your Telegram id).
-4. In [@BotFather](https://t.me/BotFather) enable **Inline mode** (`/setinline`) so **Teilen** can pick another chat.
-5. Run:
+4. Run:
 
 ```powershell
 python main.py

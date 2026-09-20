@@ -441,8 +441,15 @@ class TaskRepository:
     async def find_share_tasks(
         self, user_id: int, query: str, *, limit: int = 20
     ) -> list[Item]:
-        """Offene Tasks für Inline-Teilen: Nummer, Suche oder die letzten Einträge."""
+        """Offene Tasks für Inline-Suche: interne Id, Nummer, Titel oder die letzten Einträge."""
         q = (query or "").strip()
+        if q.lower().startswith("i:"):
+            raw_id = q[2:].strip()
+            if raw_id.isdigit():
+                item = await self.get_item(user_id, int(raw_id))
+                if item is not None and item.type == "task":
+                    return [item]
+            return []
         if q.startswith("#"):
             q = q[1:].strip()
         if q.isdigit():

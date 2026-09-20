@@ -124,7 +124,47 @@ def task_card_text(item, project, subtasks: list) -> str:
     return "\n".join(lines)
 
 
-def share_card_text(item, project, subtasks: list, *, from_name: str | None = None) -> str:
+def share_card_plain(item, project, subtasks: list, *, from_name: str | None = None) -> str:
+    """Klartext-Snapshot fuer Telegrams nativen Share-Picker."""
+    who = (from_name or "").strip()
+    lines = [
+        f"Aufgabe von {who}" if who else "Aufgabe",
+        "",
+        f"#{item.number}  {item.title}",
+    ]
+    meta = []
+    if project is not None:
+        meta.append(project.name)
+    if item.priority:
+        meta.append(format_priority(item.priority))
+    if meta:
+        lines.append("  ·  ".join(meta))
+    if item.body:
+        lines.append("")
+        snippet = item.body[:800]
+        for raw_line in snippet.splitlines():
+            cleaned = raw_line.strip()
+            if cleaned:
+                lines.append(f"– {cleaned}")
+        if len(item.body) > 800:
+            lines.append("…")
+    if subtasks:
+        lines.append("")
+        lines.append("Checkliste")
+        for sub in subtasks:
+            mark = "✓" if sub.done_at else "·"
+            lines.append(f"{mark}  {sub.title}")
+    return "\n".join(lines)
+
+
+def share_card_text(
+    item,
+    project,
+    subtasks: list,
+    *,
+    from_name: str | None = None,
+    claim_url: str | None = None,
+) -> str:
     """Snapshot einer Aufgabe fuer einen fremden Chat — ohne Live-Buttons."""
     who = esc(from_name) if from_name else ""
     header = f"<b>Aufgabe von {who}</b>" if who else "<b>Aufgabe</b>"
@@ -155,4 +195,7 @@ def share_card_text(item, project, subtasks: list, *, from_name: str | None = No
         for sub in subtasks:
             mark = "✓" if sub.done_at else "·"
             lines.append(f"{mark}  {esc(sub.title)}")
+    if claim_url:
+        lines.append("")
+        lines.append(f'<a href="{esc(claim_url)}">In TaskBuddy übernehmen</a>')
     return "\n".join(lines)

@@ -1,4 +1,4 @@
-"""Aufgaben in fremde Telegram-Chats teilen (Inline-Mode + Claim-Link)."""
+"""Aufgaben in fremde Telegram-Chats teilen (nativer Share + Claim-Link)."""
 
 from __future__ import annotations
 
@@ -11,8 +11,13 @@ from telegram import (
 )
 from telegram.constants import ParseMode
 
-from ...services.formatting import share_card_text
-from ...services.share import claim_payload, parse_claim_payload
+from ...services.formatting import share_card_plain, share_card_text
+from ...services.share import (
+    claim_payload,
+    claim_url,
+    parse_claim_payload,
+    telegram_share_url,
+)
 from .. import copy as txt
 from .. import keyboards
 from ..context import (
@@ -27,6 +32,47 @@ from .manage.card import show_task_card
 logger = logging.getLogger(__name__)
 
 _SHARE_LIMIT = 20
+
+
+async def share_callback(update: Update, context: BotContextTypes) -> None:
+    query = update.callback_query
+    if query is None or not query.data:
+        return
+    parts = query.data.split(":")
+    if len(parts) != 3 or parts[1] != "go" or not parts[2].isdigit():
+        await query.answer()
+        return
+
+    item_id = int(parts[2])
+    uid = user_id_of(update)
+    ctx = app_context(context)
+    from_name = update.effective_user.full_name if update.effective_user else None
+    bot_username = (context.bot.username or "").lstrip("@")
+
+    async with ctx.db.session() as session:
+        repo = ctx.repository(session)
+        item = await repo.get_item(uid, item_id)
+        if item is None:
+            await query.answer("Aufgabe gibt es nicht mehr", show_alert=True)
+            return
+        project = await repo.get_project(uid, item.project_id)
+        subtasks = await repo.list_subtasks(uid, item.id)
+
+    payload = claim_payload(item.id, ctx.settings.telegram_bot_token)
+    deep_link = claim_url(bot_username, payload) if bot_username else ""
+    html = share_card_text(
+        item, project, subtasks, from_name=from_name, claim_url=deep_link or None
+    )
+    markup = None
+    if deep_link:
+        markup = keyboards.share_send_keyboard(
+            telegram_share_url(
+                url=deep_link,
+                text=share_card_plain(item, project, subtasks, from_name=from_name),
+            )
+        )
+    await query.answer(txt.SHARE_TOAST)
+    await reply(update, html, reply_markup=markup)
 
 
 async def inline_query(update: Update, context: BotContextTypes) -> None:
@@ -56,6 +102,7 @@ async def inline_query(update: Update, context: BotContextTypes) -> None:
                 subtasks = await repo.list_subtasks(uid, item.id)
                 project = projects.get(item.project_id)
                 payload = claim_payload(item.id, secret)
+                deep_link = claim_url(bot_username, payload) if bot_username else ""
                 markup = (
                     keyboards.claim_keyboard(bot_username, payload)
                     if bot_username
@@ -75,6 +122,7 @@ async def inline_query(update: Update, context: BotContextTypes) -> None:
                             project,
                             subtasks,
                             from_name=from_name,
+                            claim_url=deep_link or None,
                         ),
                         parse_mode=ParseMode.HTML,
                         disable_web_page_preview=True,

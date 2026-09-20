@@ -119,6 +119,7 @@ def _register_callbacks(application: Application) -> None:
         (keyboards.EDT, manage.edit_callback),
         (keyboards.PAGE, query.pagination_callback),
         (keyboards.CLR, manage.clear_callback),
+        (keyboards.SHR, share.share_callback),
     ]
     for prefix, callback in routes:
         application.add_handler(

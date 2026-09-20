@@ -50,6 +50,7 @@ BTN_PROJECT = "Projekt"
 BTN_SUBTASK = "Checkliste"
 BTN_SHARE = "Teilen"
 BTN_CLAIM = "In TaskBuddy übernehmen"
+BTN_PICK_CHAT = "Chat wählen"
 
 # --- Statische Meldungen ---
 HELP = """<b>TaskBuddy</b>
@@ -119,6 +120,7 @@ TOAST_NOT_A_TASK = "Nur Aufgaben"
 DONE_LIST_HEADER = "<b>Erledigt</b>"
 CLAIM_BAD = _warn("Link ungültig")
 CLAIM_GONE = _warn("Aufgabe gibt es nicht mehr")
+SHARE_TOAST = "Chat wählen, dann senden."
 
 
 def private_with_id(uid) -> str:
