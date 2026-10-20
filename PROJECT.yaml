@@ -1,0 +1,11 @@
+name: app-task-buddy
+kind: app
+visibility: public
+description: Personal Telegram bot for tasks, notes, and projects.
+languages: [python]
+status: active
+owner: baxx
+license: MIT
+product: TaskBuddy
+former: TaskBuddy
+github: lucas-winter-berlin/TaskBuddy

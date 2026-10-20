@@ -1,0 +1,14 @@
+---
+description: Hausregeln fuer Baxx-Repos
+alwaysApply: true
+---
+
+# Hausregeln
+
+Quelle: `meta-standards/MANIFEST.md`. Repo-Vertrag: `PROJECT.yaml`.
+
+- Zielname bleibt `app-task-buddy`
+- README und docs Englisch, Commits Deutsch, Bezeichner Englisch
+- LICENSE bleibt MIT
+- Sichtbarkeit steht in `PROJECT.yaml`
+- Bestehenden Code nicht nebenbei umbauen
