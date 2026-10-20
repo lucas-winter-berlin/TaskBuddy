@@ -1,33 +1,48 @@
-# Secrets und Laufzeit
+# Secrets
+.secrets.env
 .env
 .env.*
 !.env.example
-*.db
-*.sqlite
-*.sqlite3
-data/
-linkbuddy.db
+**/.env
+!**/.env.example
+*.pem
+*.key
 
-# Python
+# Dependencies
+node_modules/
+vendor/
 .venv/
 venv/
-__pycache__/
-*.py[cod]
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+
+# Build
 dist/
 build/
+.next/
+.out/
+target/
+
+# Caches, logs, coverage
+.cache/
+*.log
+__pycache__/
+*.pyc
+.pytest_cache/
+coverage/
 .coverage
-htmlcov/
+*.sqlite
+*.sqlite-*
 
-# Railway local link state (if present)
-.railway/
+# Runtime data
+data/
 
-# IDE / OS
-.idea/
-.vscode/
+# OS
 .DS_Store
 Thumbs.db
-*.log
+*.swp
+
+# Project-specific
+*.db
+*.sqlite3
+taskbuddy.db
+linkbuddy.db
+.railway/

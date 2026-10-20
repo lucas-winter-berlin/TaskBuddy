@@ -1,0 +1,38 @@
+# Dependency directories
+node_modules/
+vendor/
+.venv/
+venv/
+
+# Build artifacts
+dist/
+build/
+.next/
+.out/
+target/
+
+# Caches and logs
+.cache/
+*.log
+__pycache__/
+.pytest_cache/
+
+# Lockfiles and large asset dumps
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+*.svg
+*.png
+*.mp4
+
+# Test coverage reports
+coverage/
+.coverage
+
+# Secrets
+.env
+.env.*
+.secrets.env
+
+# Project-specific
+*.db
