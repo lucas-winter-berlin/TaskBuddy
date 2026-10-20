@@ -4,8 +4,6 @@ Public. License: MIT.
 
 Personal Telegram bot for tasks, notes, and projects. Single user. Python 3.11+. SQLite locally, Postgres on Railway.
 
-GitHub folder name is still `TaskBuddy`. Intended Forgejo name is `app-task-buddy`.
-
 ## Start
 
 ```
